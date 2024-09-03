@@ -48,9 +48,11 @@ func (p *Poller) Stop() {
 }
 
 func (p *Poller) poll(ctx context.Context) error {
+	log.Debug().Msg("Polling started")
 	if err := p.service.ProcessExpiredDelegations(ctx); err != nil {
 		log.Error().Err(err).Msg("Error processing expired delegations")
 		return err
 	}
+	log.Debug().Msg("Polling completed")
 	return nil
 }
