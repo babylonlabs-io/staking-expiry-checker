@@ -1,6 +1,6 @@
 module github.com/babylonlabs-io/staking-expiry-checker
 
-go 1.23.1
+go 1.21.6
 
 require (
 	github.com/btcsuite/btcd v0.24.0
