@@ -5,16 +5,14 @@ import (
 	"os"
 	"strings"
 
-	queue "github.com/babylonlabs-io/staking-queue-client/config"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Poller  PollerConfig      `mapstructure:"poller"`
-	Db      DbConfig          `mapstructure:"db"`
-	Btc     BtcConfig         `mapstructure:"btc"`
-	Queue   queue.QueueConfig `mapstructure:"queue"`
-	Metrics MetricsConfig     `mapstructure:"metrics"`
+	Poller  PollerConfig  `mapstructure:"poller"`
+	Db      DbConfig      `mapstructure:"db"`
+	Btc     BtcConfig     `mapstructure:"btc"`
+	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
 func (cfg *Config) Validate() error {
@@ -31,10 +29,6 @@ func (cfg *Config) Validate() error {
 	}
 
 	if err := cfg.Metrics.Validate(); err != nil {
-		return err
-	}
-
-	if err := cfg.Queue.Validate(); err != nil {
 		return err
 	}
 
