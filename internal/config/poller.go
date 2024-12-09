@@ -11,6 +11,7 @@ import (
 type PollerConfig struct {
 	Interval time.Duration `mapstructure:"interval"`
 	LogLevel string        `mapstructure:"log-level"`
+	Timeout  time.Duration `mapstructure:"timeout"`
 }
 
 func (cfg *PollerConfig) Validate() error {
@@ -20,6 +21,10 @@ func (cfg *PollerConfig) Validate() error {
 
 	if err := cfg.ValidateServiceLogLevel(); err != nil {
 		return err
+	}
+
+	if cfg.Timeout <= 0 {
+		return errors.New("poll timeout must be greater than 0")
 	}
 
 	return nil

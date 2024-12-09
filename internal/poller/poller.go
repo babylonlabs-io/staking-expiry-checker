@@ -6,19 +6,22 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/services"
 )
 
 type Poller struct {
 	service  *services.Service
 	interval time.Duration
+	timeout  time.Duration
 	quit     chan struct{}
 }
 
-func NewPoller(interval time.Duration, service *services.Service) (*Poller, error) {
+func NewPoller(cfg config.PollerConfig, service *services.Service) (*Poller, error) {
 	return &Poller{
 		service:  service,
-		interval: interval,
+		interval: cfg.Interval,
+		timeout:  cfg.Timeout,
 		quit:     make(chan struct{}),
 	}, nil
 }
@@ -29,7 +32,11 @@ func (p *Poller) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if err := p.poll(ctx); err != nil {
+			// Start a new context for each poll
+			pollingCtx, cancel := context.WithTimeout(ctx, p.timeout)
+			defer cancel()
+
+			if err := p.poll(pollingCtx); err != nil {
 				log.Error().Err(err).Msg("Error polling")
 			}
 		case <-ctx.Done():
