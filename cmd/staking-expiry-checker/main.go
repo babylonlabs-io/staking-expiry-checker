@@ -13,7 +13,6 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/poller"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/queue"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/services"
 )
 
@@ -53,12 +52,7 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating btc client")
 	}
 
-	qm, err := queue.NewQueueManager(&cfg.Queue)
-	if err != nil {
-		log.Fatal().Err(err).Msg("error while creating queue manager")
-	}
-
-	delegationService := services.NewService(dbClient, btcClient, qm)
+	delegationService := services.NewService(dbClient, btcClient)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating delegation service")
 	}

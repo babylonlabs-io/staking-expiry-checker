@@ -32,7 +32,6 @@ var (
 	metricsRouter              *chi.Mux
 	pollDurationHistogram      *prometheus.HistogramVec
 	btcClientDurationHistogram *prometheus.HistogramVec
-	queueSendErrorCounter      prometheus.Counter
 )
 
 // Init initializes the metrics package.
@@ -89,18 +88,9 @@ func registerMetrics() {
 		[]string{"function", "status"},
 	)
 
-	// add a counter for the number of errors from the fail to push message into queue
-	queueSendErrorCounter = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "queue_send_error_count",
-			Help: "The total number of errors when sending messages to the queue",
-		},
-	)
-
 	prometheus.MustRegister(
 		pollDurationHistogram,
 		btcClientDurationHistogram,
-		queueSendErrorCounter,
 	)
 }
 
@@ -125,8 +115,4 @@ func RecordBtcClientMetrics[T any](clientRequest func() (T, error)) (T, error) {
 	btcClientDurationHistogram.WithLabelValues(functionName, status.String()).Observe(duration)
 
 	return result, err
-}
-
-func RecordQueueSendError() {
-	queueSendErrorCounter.Inc()
 }

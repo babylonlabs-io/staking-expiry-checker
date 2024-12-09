@@ -5,22 +5,18 @@ import (
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/btcclient"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/queue"
-	queueclient "github.com/babylonlabs-io/staking-queue-client/client"
 	"github.com/rs/zerolog/log"
 )
 
 type Service struct {
-	db           db.DbInterface
-	btc          btcclient.BtcInterface
-	queueManager *queue.QueueManager
+	db  db.DbInterface
+	btc btcclient.BtcInterface
 }
 
-func NewService(db db.DbInterface, btc btcclient.BtcInterface, qm *queue.QueueManager) *Service {
+func NewService(db db.DbInterface, btc btcclient.BtcInterface) *Service {
 	return &Service{
-		db:           db,
-		btc:          btc,
-		queueManager: qm,
+		db:  db,
+		btc: btc,
 	}
 }
 
@@ -43,11 +39,8 @@ func (s *Service) ProcessExpiredDelegations(ctx context.Context) error {
 		}
 
 		for _, delegation := range expiredDelegations {
-			ev := queueclient.NewExpiredStakingEvent(delegation.StakingTxHashHex, delegation.TxType)
-			if err := s.queueManager.SendExpiredStakingEvent(ctx, ev); err != nil {
-				log.Error().Err(err).Msg("Error sending expired staking event")
-				return err
-			}
+			// TODO: Process the expired delegation.
+			log.Info().Msgf("Found a expired delegation, do nothing now: %v", delegation.ID)
 			// After successfully sending the event, delete the entry from the database.
 			if err := s.db.DeleteExpiredDelegation(ctx, delegation.ID); err != nil {
 				log.Error().Err(err).Msg("Error deleting expired delegation")
