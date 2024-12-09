@@ -1,6 +1,7 @@
 poller:
   interval: 2s
   log-level: debug
+  timeout: 10s
 db:
   username: root
   password: example

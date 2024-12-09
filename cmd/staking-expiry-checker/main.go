@@ -57,7 +57,7 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating delegation service")
 	}
 
-	p, err := poller.NewPoller(cfg.Poller.Interval, delegationService)
+	p, err := poller.NewPoller(cfg.Poller, delegationService)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating poller")
 	}
