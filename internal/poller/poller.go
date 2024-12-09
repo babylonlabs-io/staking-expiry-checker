@@ -29,7 +29,11 @@ func (p *Poller) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if err := p.poll(ctx); err != nil {
+			// Start a new context for each poll
+			pollingCtx, cancel := context.WithTimeout(ctx, p.interval)
+			defer cancel()
+
+			if err := p.poll(pollingCtx); err != nil {
 				log.Error().Err(err).Msg("Error polling")
 			}
 		case <-ctx.Done():
