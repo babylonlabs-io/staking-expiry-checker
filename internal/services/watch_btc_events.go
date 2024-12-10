@@ -77,7 +77,6 @@ func (s *Service) watchForSpendUnbondingTx(
 		if err := s.handleSpendingUnbondingTransaction(
 			quitCtx,
 			spendDetail.SpendingTx,
-			uint32(spendDetail.SpendingHeight),
 			spendDetail.SpenderInputIndex,
 			delegation,
 		); err != nil {
@@ -100,7 +99,6 @@ func (s *Service) handleSpendingStakingTransaction(
 	ctx context.Context,
 	spendingTx *wire.MsgTx,
 	spendingInputIdx uint32,
-	spendingHeight uint32,
 	stakingTxHashHex string,
 ) error {
 	delegation, err := s.db.GetBTCDelegationByStakingTxHash(ctx, stakingTxHashHex)
@@ -139,6 +137,19 @@ func (s *Service) handleSpendingStakingTransaction(
 			Str("unbonding_tx", spendingTx.TxHash().String()).
 			Msg("staking tx has been spent through unbonding path")
 
+		// Blocking send - will wait if channel is full
+		select {
+		case s.unbondingDelegationChan <- delegation:
+			log.Debug().
+				Str("staking_tx", delegation.StakingTxHashHex).
+				Msg("sent delegation to unbonding handler")
+		case <-ctx.Done():
+			log.Error().
+				Str("staking_tx", delegation.StakingTxHashHex).
+				Msg("context cancelled while waiting to send to unbonding channel")
+			return ctx.Err()
+		}
+
 		// Register unbonding spend notification
 		return s.registerUnbondingSpendNotification(ctx, delegation)
 	}
@@ -161,36 +172,26 @@ func (s *Service) handleSpendingStakingTransaction(
 		//failedProcessingWithdrawTxsFromStakingCounter.Inc()
 		return err
 	}
-	// if withdrawalErr == nil {
-	// 	// It's a valid withdrawal, process it
-	// 	log.Debug().
-	// 		Str("staking_tx", delegation.StakingTxHashHex).
-	// 		Str("withdrawal_tx", spendingTx.TxHash().String()).
-	// 		Msg("staking tx has been spent through withdrawal path")
-	// 	// TODO here
-	// 	//return s.handleWithdrawal(ctx, delegation, types.SubStateTimelock)
-	// }
 
-	// If it's not a valid withdrawal, check if it's a valid slashing
-	// if !errors.Is(withdrawalErr, types.ErrInvalidWithdrawalTx) {
-	// 	return fmt.Errorf("failed to validate withdrawal tx: %w", withdrawalErr)
-	// }
+	// Blocking send - will wait if channel is full
+	select {
+	case s.withdrawnDelegationChan <- delegation:
+		log.Debug().
+			Str("staking_tx", delegation.StakingTxHashHex).
+			Msg("sent delegation to withdrawn handler")
+	case <-ctx.Done():
+		log.Error().
+			Str("staking_tx", delegation.StakingTxHashHex).
+			Msg("context cancelled while waiting to send to withdrawn channel")
+		return ctx.Err()
+	}
 
-	// // Try to validate as slashing transaction
-	// if err := s.validateSlashingTxFromStaking(spendingTx, spendingInputIdx, delegation, params); err != nil {
-	// 	if errors.Is(err, types.ErrInvalidSlashingTx) {
-	// 		// Neither withdrawal nor slashing - this is an invalid spend
-	// 		return fmt.Errorf("transaction is neither valid unbonding, withdrawal, nor slashing: %w", err)
-	// 	}
-	// 	return fmt.Errorf("failed to validate slashing tx: %w", err)
-	// }
 	return nil
 }
 
 func (s *Service) handleSpendingUnbondingTransaction(
 	ctx context.Context,
 	spendingTx *wire.MsgTx,
-	spendingHeight uint32,
 	spendingInputIdx uint32,
 	delegation *model.BTCDelegationDetails,
 ) error {
@@ -216,72 +217,23 @@ func (s *Service) handleSpendingUnbondingTransaction(
 		return fmt.Errorf("failed to validate withdrawal tx: %w", withdrawalErr)
 	}
 
+	// Blocking send - will wait if channel is full
+	select {
+	case s.withdrawnDelegationChan <- delegation:
+		log.Debug().
+			Str("staking_tx", delegation.StakingTxHashHex).
+			Msg("sent delegation to withdrawn handler")
+	case <-ctx.Done():
+		log.Error().
+			Str("staking_tx", delegation.StakingTxHashHex).
+			Msg("context cancelled while waiting to send to withdrawn channel")
+		return ctx.Err()
+	}
+
 	// todo: handle withdrawal here
-
-	// // Try to validate as slashing transaction
-	// if err := s.validateSlashingTxFromUnbonding(spendingTx, delegation, spendingInputIdx, params); err != nil {
-	// 	if errors.Is(err, types.ErrInvalidSlashingTx) {
-	// 		// Neither withdrawal nor slashing - this is an invalid spend
-	// 		return fmt.Errorf("transaction is neither valid withdrawal nor slashing: %w", err)
-	// 	}
-	// 	return fmt.Errorf("failed to validate slashing tx: %w", err)
-	// }
-
-	// // Save unbonding slashing tx hex
-	// unbondingSlashingTx, err := bstypes.NewBTCSlashingTxFromMsgTx(spendingTx)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to convert unbonding slashing tx to bytes: %w", err)
-	// }
-	// unbondingSlashingTxHex := unbondingSlashingTx.ToHexStr()
-	// if err := s.db.SaveBTCDelegationUnbondingSlashingTxHex(ctx, delegation.StakingTxHashHex, unbondingSlashingTxHex); err != nil {
-	// 	return fmt.Errorf("failed to save unbonding slashing tx hex: %w", err)
-	// }
-
-	// // It's a valid slashing tx, watch for spending change output
-	// return s.startWatchingSlashingChange(
-	// 	ctx,
-	// 	spendingTx,
-	// 	spendingHeight,
-	// 	delegation,
-	// 	types.SubStateEarlyUnbondingSlashing,
-	// )
 
 	return nil
 }
-
-// func (s *Service) handleWithdrawal(
-// 	ctx context.Context,
-// 	delegation *model.BTCDelegationDetails,
-// 	subState types.DelegationSubState,
-// ) error {
-// 	delegationState, err := s.db.GetBTCDelegationState(ctx, delegation.StakingTxHashHex)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to get delegation state: %w", err)
-// 	}
-
-// 	qualifiedStates := types.QualifiedStatesForWithdrawn()
-// 	if qualifiedStates == nil || !utils.Contains(qualifiedStates, *delegationState) {
-// 		log.Error().
-// 			Str("staking_tx", delegation.StakingTxHashHex).
-// 			Str("current_state", delegationState.String()).
-// 			Msg("current state is not qualified for withdrawal")
-// 		return fmt.Errorf("current state %s is not qualified for withdrawal", *delegationState)
-// 	}
-
-// 	// Update to withdrawn state
-// 	log.Debug().
-// 		Str("staking_tx", delegation.StakingTxHashHex).
-// 		Str("state", types.StateWithdrawn.String()).
-// 		Str("sub_state", subState.String()).
-// 		Msg("updating delegation state to withdrawn")
-// 	return s.db.UpdateBTCDelegationState(
-// 		ctx,
-// 		delegation.StakingTxHashHex,
-// 		types.QualifiedStatesForWithdrawn(),
-// 		types.StateWithdrawn,
-// 		&subState,
-// 	)
-// }
 
 // IsValidUnbondingTx tries to identify a tx is a valid unbonding tx
 // It returns error when (1) it fails to verify the unbonding tx due
