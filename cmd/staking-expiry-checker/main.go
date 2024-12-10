@@ -79,4 +79,6 @@ func main() {
 	// Start pollers in separate goroutines
 	go expiryPoller.Start(ctx)
 	go btcSubscriberPoller.Start(ctx)
+
+	go service.HandleUnbondingDelegationChannel(ctx)
 }

@@ -98,7 +98,7 @@ func (_m *DbInterface) GetBTCDelegationByStakingTxHash(ctx context.Context, stak
 }
 
 // GetBTCDelegationsByStates provides a mock function with given fields: ctx, states
-func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []model.DelegationState) ([]*model.BTCDelegationDetails, error) {
+func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []types.DelegationState) ([]*model.BTCDelegationDetails, error) {
 	ret := _m.Called(ctx, states)
 
 	if len(ret) == 0 {
@@ -107,10 +107,10 @@ func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []m
 
 	var r0 []*model.BTCDelegationDetails
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []model.DelegationState) ([]*model.BTCDelegationDetails, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState) ([]*model.BTCDelegationDetails, error)); ok {
 		return rf(ctx, states)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []model.DelegationState) []*model.BTCDelegationDetails); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState) []*model.BTCDelegationDetails); ok {
 		r0 = rf(ctx, states)
 	} else {
 		if ret.Get(0) != nil {
@@ -118,7 +118,7 @@ func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []m
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []model.DelegationState) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []types.DelegationState) error); ok {
 		r1 = rf(ctx, states)
 	} else {
 		r1 = ret.Error(1)
@@ -193,17 +193,35 @@ func (_m *DbInterface) SaveTimeLockExpireCheck(ctx context.Context, stakingTxHas
 	return r0
 }
 
-// TransitionToUnbonded provides a mock function with given fields: ctx, stakingTxHashHex, unbondTxType
-func (_m *DbInterface) TransitionToUnbonded(ctx context.Context, stakingTxHashHex string, unbondTxType types.TransactionType) error {
+// TransitionToUnbondedState provides a mock function with given fields: ctx, stakingTxHashHex, unbondTxType
+func (_m *DbInterface) TransitionToUnbondedState(ctx context.Context, stakingTxHashHex string, unbondTxType types.StakingTxType) error {
 	ret := _m.Called(ctx, stakingTxHashHex, unbondTxType)
 
 	if len(ret) == 0 {
-		panic("no return value specified for TransitionToUnbonded")
+		panic("no return value specified for TransitionToUnbondedState")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, types.TransactionType) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, types.StakingTxType) error); ok {
 		r0 = rf(ctx, stakingTxHashHex, unbondTxType)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TransitionToUnbondingState provides a mock function with given fields: ctx, stakingTxHashHex
+func (_m *DbInterface) TransitionToUnbondingState(ctx context.Context, stakingTxHashHex string) error {
+	ret := _m.Called(ctx, stakingTxHashHex)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TransitionToUnbondingState")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, stakingTxHashHex)
 	} else {
 		r0 = ret.Error(0)
 	}
