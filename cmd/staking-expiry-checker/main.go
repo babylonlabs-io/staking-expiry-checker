@@ -60,14 +60,32 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating btc notifier")
 	}
 
-	delegationService := services.NewService(cfg, dbClient, btcNotifier, btcClient)
+	service := services.NewService(cfg, dbClient, btcNotifier, btcClient)
 	if err != nil {
-		log.Fatal().Err(err).Msg("error while creating delegation service")
+		log.Fatal().Err(err).Msg("error while creating service")
 	}
 
-	p, err := poller.NewPoller(cfg.Poller, delegationService)
+	// Create expiry poller
+	expiryPoller, err := poller.NewPoller(
+		poller.ExpiryPoller,
+		cfg.Pollers.ExpiryChecker,
+		service.ProcessExpiredDelegations,
+	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("error while creating poller")
+		log.Fatal().Err(err).Msg("error while creating expiry poller")
 	}
-	p.Start(ctx)
+
+	// Create BTC subscriber poller
+	btcSubscriberPoller, err := poller.NewPoller(
+		poller.BTCSubscriberPoller,
+		cfg.Pollers.BtcSubscriber,
+		service.ProcessBTCSubscriber,
+	)
+	if err != nil {
+		log.Fatal().Err(err).Msg("error while creating BTC subscriber poller")
+	}
+
+	// Start pollers in separate goroutines
+	go expiryPoller.Start(ctx)
+	go btcSubscriberPoller.Start(ctx)
 }

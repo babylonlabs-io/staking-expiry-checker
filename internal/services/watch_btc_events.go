@@ -568,7 +568,7 @@ func (s *Service) quitContext() (context.Context, func()) {
 	return ctx, cancel
 }
 
-func (s *Service) RegisterStakingSpendNotification(
+func (s *Service) registerStakingSpendNotification(
 	ctx context.Context,
 	stakingTxHashHex string,
 	stakingTxHex string,
