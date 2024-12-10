@@ -145,14 +145,14 @@ func (s *Service) handleSpendingStakingTransaction(
 		return fmt.Errorf("failed to validate withdrawal tx: %w", withdrawalErr)
 	}
 
-	// Try to validate as slashing transaction
-	if err := s.validateSlashingTxFromStaking(spendingTx, spendingInputIdx, delegation, params); err != nil {
-		if errors.Is(err, types.ErrInvalidSlashingTx) {
-			// Neither withdrawal nor slashing - this is an invalid spend
-			return fmt.Errorf("transaction is neither valid unbonding, withdrawal, nor slashing: %w", err)
-		}
-		return fmt.Errorf("failed to validate slashing tx: %w", err)
-	}
+	// // Try to validate as slashing transaction
+	// if err := s.validateSlashingTxFromStaking(spendingTx, spendingInputIdx, delegation, params); err != nil {
+	// 	if errors.Is(err, types.ErrInvalidSlashingTx) {
+	// 		// Neither withdrawal nor slashing - this is an invalid spend
+	// 		return fmt.Errorf("transaction is neither valid unbonding, withdrawal, nor slashing: %w", err)
+	// 	}
+	// 	return fmt.Errorf("failed to validate slashing tx: %w", err)
+	// }
 	return nil
 }
 
