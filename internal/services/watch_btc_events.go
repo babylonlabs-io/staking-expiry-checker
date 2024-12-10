@@ -116,6 +116,21 @@ func (s *Service) handleSpendingStakingTransaction(
 	// First try to validate as unbonding tx
 	isUnbonding, err := s.IsValidUnbondingTx(spendingTx, delegation, params)
 	if err != nil {
+		if errors.Is(err, types.ErrInvalidUnbondingTx) {
+			// TODO: here
+			// invalidTransactionsCounter.WithLabelValues("confirmed_unbonding_transactions").Inc()
+			// si.logger.Warn("found an invalid unbonding tx",
+			// 	zap.String("tx_hash", tx.TxHash().String()),
+			// 	zap.Uint64("height", height),
+			// 	zap.Bool("is_confirmed", true),
+			// 	zap.Error(err),
+			// )
+
+			return nil
+		}
+		// record metrics
+		// failedVerifyingUnbondingTxsCounter.Inc()
+		// return err
 		return fmt.Errorf("failed to validate unbonding tx: %w", err)
 	}
 	if isUnbonding {
@@ -130,20 +145,36 @@ func (s *Service) handleSpendingStakingTransaction(
 
 	// Try to validate as withdrawal transaction
 	withdrawalErr := s.validateWithdrawalTxFromStaking(spendingTx, spendingInputIdx, delegation, params)
-	if withdrawalErr == nil {
-		// It's a valid withdrawal, process it
-		log.Debug().
-			Str("staking_tx", delegation.StakingTxHashHex).
-			Str("withdrawal_tx", spendingTx.TxHash().String()).
-			Msg("staking tx has been spent through withdrawal path")
-		// TODO here
-		//return s.handleWithdrawal(ctx, delegation, types.SubStateTimelock)
+	if withdrawalErr != nil {
+		if errors.Is(err, types.ErrInvalidWithdrawalTx) {
+			// invalidTransactionsCounter.WithLabelValues("confirmed_withdraw_staking_transactions").Inc()
+			// si.logger.Warn("found an invalid withdrawal tx from staking",
+			// 	zap.String("tx_hash", tx.TxHash().String()),
+			// 	zap.Uint64("height", height),
+			// 	zap.Bool("is_confirmed", true),
+			// 	zap.Error(err),
+			// )
+
+			return nil
+		}
+
+		//failedProcessingWithdrawTxsFromStakingCounter.Inc()
+		return err
 	}
+	// if withdrawalErr == nil {
+	// 	// It's a valid withdrawal, process it
+	// 	log.Debug().
+	// 		Str("staking_tx", delegation.StakingTxHashHex).
+	// 		Str("withdrawal_tx", spendingTx.TxHash().String()).
+	// 		Msg("staking tx has been spent through withdrawal path")
+	// 	// TODO here
+	// 	//return s.handleWithdrawal(ctx, delegation, types.SubStateTimelock)
+	// }
 
 	// If it's not a valid withdrawal, check if it's a valid slashing
-	if !errors.Is(withdrawalErr, types.ErrInvalidWithdrawalTx) {
-		return fmt.Errorf("failed to validate withdrawal tx: %w", withdrawalErr)
-	}
+	// if !errors.Is(withdrawalErr, types.ErrInvalidWithdrawalTx) {
+	// 	return fmt.Errorf("failed to validate withdrawal tx: %w", withdrawalErr)
+	// }
 
 	// // Try to validate as slashing transaction
 	// if err := s.validateSlashingTxFromStaking(spendingTx, spendingInputIdx, delegation, params); err != nil {
@@ -170,21 +201,22 @@ func (s *Service) handleSpendingUnbondingTransaction(
 
 	// First try to validate as withdrawal transaction
 	withdrawalErr := s.validateWithdrawalTxFromUnbonding(spendingTx, delegation, spendingInputIdx, params)
-	if withdrawalErr == nil {
-		// It's a valid withdrawal, process it
-		log.Debug().
-			Str("staking_tx", delegation.StakingTxHashHex).
-			Str("unbonding_tx", spendingTx.TxHash().String()).
-			Msg("unbonding tx has been spent through withdrawal path")
+	if withdrawalErr != nil {
+		if errors.Is(withdrawalErr, types.ErrInvalidWithdrawalTx) {
+			// invalidTransactionsCounter.WithLabelValues("confirmed_withdraw_staking_transactions").Inc()
+			// si.logger.Warn("found an invalid withdrawal tx from staking",
+			// 	zap.String("tx_hash", tx.TxHash().String()),
+			// 	zap.Uint64("height", height),
+			// 	zap.Bool("is_confirmed", true),
+			// 	zap.Error(err),
+			// )
 
-		// TODO: here
-		// return s.handleWithdrawal(ctx, delegation, types.SubStateEarlyUnbonding)
-	}
-
-	// If it's not a valid withdrawal, check if it's a valid slashing
-	if !errors.Is(withdrawalErr, types.ErrInvalidWithdrawalTx) {
+			return nil
+		}
 		return fmt.Errorf("failed to validate withdrawal tx: %w", withdrawalErr)
 	}
+
+	// todo: handle withdrawal here
 
 	// // Try to validate as slashing transaction
 	// if err := s.validateSlashingTxFromUnbonding(spendingTx, delegation, spendingInputIdx, params); err != nil {
