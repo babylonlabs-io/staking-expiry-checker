@@ -1,7 +1,11 @@
-poller:
-  interval: 5s
+pollers:
   log-level: debug
-  timeout: 10s
+  expiry-checker:
+    interval: 5s
+    timeout: 10s
+  btc-subscriber:
+    interval: 5s
+    timeout: 10s
 db:
   username: root
   password: example
