@@ -26,6 +26,14 @@ func (s *Service) ProcessBTCSubscriber(ctx context.Context) *types.Error {
 
 	// Process each delegation
 	for _, delegation := range delegations {
+		// Check against local copy - no locks needed
+		if s.trackedSubs.IsSubscribed(delegation.StakingTxHashHex) { // Each iteration: RLock/RUnlock
+			log.Debug().
+				Str("stakingTxHash", delegation.StakingTxHashHex).
+				Msg("Delegation already subscribed, skipping")
+			continue
+		}
+
 		err := s.registerStakingSpendNotification(
 			ctx,
 			delegation.StakingTxHashHex,
@@ -40,6 +48,9 @@ func (s *Service) ProcessBTCSubscriber(ctx context.Context) *types.Error {
 				Msg("Failed to register staking spend notification")
 			return types.NewInternalServiceError(err)
 		}
+
+		// Add to tracked subscriptions after successful registration
+		s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
 
 		log.Debug().
 			Str("stakingTxHash", delegation.StakingTxHashHex).

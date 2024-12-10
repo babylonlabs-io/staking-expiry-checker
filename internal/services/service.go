@@ -17,6 +17,7 @@ type Service struct {
 	db          db.DbInterface
 	btcNotifier notifier.ChainNotifier
 	btc         btcclient.BtcInterface
+	trackedSubs *TrackedSubscriptions
 }
 
 func NewService(
@@ -31,5 +32,6 @@ func NewService(
 		db:          db,
 		btcNotifier: btcNotifier,
 		btc:         btc,
+		trackedSubs: NewTrackedSubscriptions(),
 	}
 }
