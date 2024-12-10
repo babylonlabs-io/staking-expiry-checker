@@ -65,25 +65,16 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating service")
 	}
 
-	// Create expiry poller
-	expiryPoller, err := poller.NewPoller(
-		poller.ExpiryPoller,
+	// Even though we pass service, it's viewed only through the specific interface
+	expiryPoller := poller.NewExpiryPoller(
 		cfg.Pollers.ExpiryChecker,
-		service.ProcessExpiredDelegations,
+		service, // service implements ExpiryChecker
 	)
-	if err != nil {
-		log.Fatal().Err(err).Msg("error while creating expiry poller")
-	}
 
-	// Create BTC subscriber poller
-	btcSubscriberPoller, err := poller.NewPoller(
-		poller.BTCSubscriberPoller,
+	btcSubscriberPoller := poller.NewBTCSubscriberPoller(
 		cfg.Pollers.BtcSubscriber,
-		service.ProcessBTCSubscriber,
+		service, // service implements BTCSubscriber
 	)
-	if err != nil {
-		log.Fatal().Err(err).Msg("error while creating BTC subscriber poller")
-	}
 
 	// Start pollers in separate goroutines
 	go expiryPoller.Start(ctx)

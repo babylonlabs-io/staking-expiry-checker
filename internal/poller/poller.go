@@ -10,6 +10,15 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 )
 
+// Define minimal interfaces for each poller type
+type ExpiryChecker interface {
+	ProcessExpiredDelegations(ctx context.Context) *types.Error
+}
+
+type BTCSubscriber interface {
+	ProcessBTCSubscriber(ctx context.Context) *types.Error
+}
+
 type PollerType string
 
 const (
@@ -21,20 +30,31 @@ type PollerOperation func(ctx context.Context) *types.Error
 
 type Poller struct {
 	pollerType PollerType
-	operation  PollerOperation
+	poll       func(ctx context.Context) *types.Error
 	interval   time.Duration
 	timeout    time.Duration
 	quit       chan struct{}
 }
 
-func NewPoller(pollerType PollerType, cfg config.PollerConfig, operation PollerOperation) (*Poller, error) {
+// Constructors now accept interfaces instead of the full service
+func NewExpiryPoller(cfg config.PollerConfig, checker ExpiryChecker) *Poller {
 	return &Poller{
-		pollerType: pollerType,
-		operation:  operation,
+		pollerType: ExpiryPoller,
 		interval:   cfg.Interval,
 		timeout:    cfg.Timeout,
+		poll:       checker.ProcessExpiredDelegations,
 		quit:       make(chan struct{}),
-	}, nil
+	}
+}
+
+func NewBTCSubscriberPoller(cfg config.PollerConfig, subscriber BTCSubscriber) *Poller {
+	return &Poller{
+		pollerType: BTCSubscriberPoller,
+		interval:   cfg.Interval,
+		timeout:    cfg.Timeout,
+		poll:       subscriber.ProcessBTCSubscriber,
+		quit:       make(chan struct{}),
+	}
 }
 
 func (p *Poller) Start(ctx context.Context) {
@@ -47,7 +67,7 @@ func (p *Poller) Start(ctx context.Context) {
 			pollingCtx, cancel := context.WithTimeout(ctx, p.timeout)
 			defer cancel()
 
-			if err := p.operation(pollingCtx); err != nil {
+			if err := p.poll(pollingCtx); err != nil {
 				log.Error().
 					Err(err).
 					Str("poller", string(p.pollerType)).
