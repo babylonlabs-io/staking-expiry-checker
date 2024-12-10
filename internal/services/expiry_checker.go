@@ -13,7 +13,7 @@ import (
 // This method tolerate duplicated calls on the same stakingTxHashHex.
 func (s *Service) ProcessExpireCheck(
 	ctx context.Context, stakingTxHashHex string,
-	startHeight, timelock uint64, txType types.TransactionType,
+	startHeight, timelock uint64, txType types.StakingTxType,
 ) *types.Error {
 	expireHeight := startHeight + timelock
 	err := s.db.SaveTimeLockExpireCheck(
@@ -68,14 +68,14 @@ func (s *Service) ProcessExpiredDelegation(
 	ctx context.Context, delegation model.TimeLockDocument,
 ) *types.Error {
 	// Check what type of the timelock is
-	timelockType, err := types.FromString(delegation.TxType)
+	timelockType, err := types.StakingTxTypeFromString(delegation.TxType)
 	if err != nil {
 		log.Error().Err(err).Msgf("Invalid timelock type: %s", delegation.TxType)
 		return types.NewInternalServiceError(err)
 	}
 
 	// Try to transition to unbonded, will skip if not eligible (NotFoundError)
-	err = s.db.TransitionToUnbonded(
+	err = s.db.TransitionToUnbondedState(
 		ctx, delegation.StakingTxHashHex, timelockType,
 	)
 	if err != nil {

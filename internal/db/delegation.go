@@ -6,31 +6,30 @@ import (
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db/model"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func (db *Database) TransitionToUnbonded(
+func (db *Database) TransitionToUnbondedState(
 	ctx context.Context,
 	stakingTxHashHex string,
-	unbondTxType types.TransactionType,
+	unbondTxType types.StakingTxType,
 ) error {
-	eligiblePreviousStates := qualifiedStatesToUnbonded(unbondTxType)
 	return db.transitionState(
-		ctx, stakingTxHashHex, model.Unbonded,
-		eligiblePreviousStates,
+		ctx, stakingTxHashHex, types.Unbonded,
+		utils.QualifiedStatesToUnbonded(unbondTxType),
 	)
 }
 
-func qualifiedStatesToUnbonded(unbondTxType types.TransactionType) []model.DelegationState {
-	switch unbondTxType {
-	case types.TransactionTypeActive:
-		return []model.DelegationState{model.Active}
-	case types.TransactionTypeUnbonding:
-		return []model.DelegationState{model.Unbonding}
-	default:
-		return nil
-	}
+func (db *Database) TransitionToUnbondingState(
+	ctx context.Context,
+	stakingTxHashHex string,
+) error {
+	return db.transitionState(
+		ctx, stakingTxHashHex, types.Unbonding,
+		utils.QualifiedStatesToUnbonding(),
+	)
 }
 
 // TransitionState updates the state of a staking transaction to a new state
@@ -39,8 +38,8 @@ func qualifiedStatesToUnbonded(unbondTxType types.TransactionType) []model.Deleg
 func (db *Database) transitionState(
 	ctx context.Context,
 	stakingTxHashHex string,
-	newState model.DelegationState,
-	eligiblePreviousState []model.DelegationState,
+	newState types.DelegationState,
+	eligiblePreviousState []types.DelegationState,
 ) error {
 	client := db.client.Database(
 		db.dbName,
@@ -91,7 +90,7 @@ func (db *Database) GetBTCDelegationByStakingTxHash(
 
 func (db *Database) GetBTCDelegationsByStates(
 	ctx context.Context,
-	states []model.DelegationState,
+	states []types.DelegationState,
 ) ([]*model.BTCDelegationDetails, error) {
 	// Convert states to a slice of strings
 	stateStrings := make([]string, len(states))

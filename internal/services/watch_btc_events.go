@@ -40,7 +40,6 @@ func (s *Service) watchForSpendStakingTx(
 			quitCtx,
 			spendDetail.SpendingTx,
 			spendDetail.SpenderInputIndex,
-			uint32(spendDetail.SpendingHeight),
 			stakingTxHashHex,
 		); err != nil {
 			log.Error().

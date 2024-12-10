@@ -3,16 +3,15 @@ package services
 import (
 	"context"
 
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/db/model"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	"github.com/rs/zerolog/log"
 )
 
 func (s *Service) ProcessBTCSubscriber(ctx context.Context) *types.Error {
 	// Get delegations that need BTC notifications
-	delegations, err := s.db.GetBTCDelegationsByStates(ctx, []model.DelegationState{
-		model.Unbonded,
-		model.UnbondingRequested,
+	delegations, err := s.db.GetBTCDelegationsByStates(ctx, []types.DelegationState{
+		types.Unbonded,
+		types.UnbondingRequested,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get delegations for BTC subscription")

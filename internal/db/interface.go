@@ -20,14 +20,18 @@ type DbInterface interface {
 		ctx context.Context, stakingTxHashHex string,
 		expireHeight uint64, txType string,
 	) error
-	TransitionToUnbonded(
+	TransitionToUnbondedState(
 		ctx context.Context,
 		stakingTxHashHex string,
-		unbondTxType types.TransactionType,
+		unbondTxType types.StakingTxType,
+	) error
+	TransitionToUnbondingState(
+		ctx context.Context,
+		stakingTxHashHex string,
 	) error
 	GetBTCDelegationByStakingTxHash(
 		ctx context.Context, stakingTxHash string,
 	) (*model.BTCDelegationDetails, error)
 	GetStakingParams(ctx context.Context, version uint32) (*model.StakingParams, error)
-	GetBTCDelegationsByStates(ctx context.Context, states []model.DelegationState) ([]*model.BTCDelegationDetails, error)
+	GetBTCDelegationsByStates(ctx context.Context, states []types.DelegationState) ([]*model.BTCDelegationDetails, error)
 }
