@@ -64,3 +64,27 @@ func (db *Database) transitionState(
 	}
 	return nil
 }
+
+func (db *Database) GetBTCDelegationByStakingTxHash(
+	ctx context.Context, stakingTxHash string,
+) (*model.BTCDelegationDetails, error) {
+	filter := bson.M{"_id": stakingTxHash}
+
+	res := db.client.Database(db.dbName).
+		Collection(model.DelegationsCollection).
+		FindOne(ctx, filter)
+
+	var delegationDoc model.BTCDelegationDetails
+	err := res.Decode(&delegationDoc)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, &NotFoundError{
+				Key:     stakingTxHash,
+				Message: "BTC delegation not found when getting by staking tx hash",
+			}
+		}
+		return nil, err
+	}
+
+	return &delegationDoc, nil
+}

@@ -1,18 +1,35 @@
 package services
 
 import (
+	"sync"
+
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/btcclient"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 )
 
 type Service struct {
-	db  db.DbInterface
-	btc btcclient.BtcInterface
+	wg   sync.WaitGroup
+	quit chan struct{}
+
+	cfg         *config.Config
+	db          db.DbInterface
+	btcNotifier notifier.ChainNotifier
+	btc         btcclient.BtcInterface
 }
 
-func NewService(db db.DbInterface, btc btcclient.BtcInterface) *Service {
+func NewService(
+	cfg *config.Config,
+	db db.DbInterface,
+	btcNotifier notifier.ChainNotifier,
+	btc btcclient.BtcInterface,
+) *Service {
 	return &Service{
-		db:  db,
-		btc: btc,
+		quit:        make(chan struct{}),
+		cfg:         cfg,
+		db:          db,
+		btcNotifier: btcNotifier,
+		btc:         btc,
 	}
 }

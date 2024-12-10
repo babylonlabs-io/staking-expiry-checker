@@ -1,10 +1,14 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/hex"
+	"fmt"
 	"runtime"
 	"strings"
 
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/wire"
 )
 
 type SupportedBtcNetwork string
@@ -76,4 +80,20 @@ func shortFuncName(fullName string) string {
 		fullName = fullName[idx+1:]
 	}
 	return fullName
+}
+
+func DeserializeBtcTransactionFromHex(txHex string) (*wire.MsgTx, error) {
+	// First decode the hex string into bytes
+	txBytes, err := hex.DecodeString(txHex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode hex string: %w", err)
+	}
+
+	// Then deserialize the bytes into a transaction
+	reader := bytes.NewReader(txBytes)
+	tx := wire.NewMsgTx(wire.TxVersion)
+	if err := tx.Deserialize(reader); err != nil {
+		return nil, fmt.Errorf("failed to deserialize transaction: %w", err)
+	}
+	return tx, nil
 }

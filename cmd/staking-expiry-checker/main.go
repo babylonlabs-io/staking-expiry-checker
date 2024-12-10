@@ -52,7 +52,15 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating btc client")
 	}
 
-	delegationService := services.NewService(dbClient, btcClient)
+	btcNotifier, err := btcclient.NewBTCNotifier(
+		&cfg.Btc,
+		&btcclient.EmptyHintCache{},
+	)
+	if err != nil {
+		log.Fatal().Err(err).Msg("error while creating btc notifier")
+	}
+
+	delegationService := services.NewService(cfg, dbClient, btcNotifier, btcClient)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating delegation service")
 	}

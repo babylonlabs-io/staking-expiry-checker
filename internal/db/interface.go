@@ -25,4 +25,8 @@ type DbInterface interface {
 		stakingTxHashHex string,
 		unbondTxType types.TransactionType,
 	) error
+	GetBTCDelegationByStakingTxHash(
+		ctx context.Context, stakingTxHash string,
+	) (*model.BTCDelegationDetails, error)
+	GetStakingParams(ctx context.Context, version uint32) (*model.StakingParams, error)
 }
