@@ -29,4 +29,5 @@ type DbInterface interface {
 		ctx context.Context, stakingTxHash string,
 	) (*model.BTCDelegationDetails, error)
 	GetStakingParams(ctx context.Context, version uint32) (*model.StakingParams, error)
+	GetBTCDelegationsByStates(ctx context.Context, states []model.DelegationState) ([]*model.BTCDelegationDetails, error)
 }
