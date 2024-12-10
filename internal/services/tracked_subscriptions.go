@@ -20,27 +20,6 @@ func (ts *TrackedSubscriptions) IsSubscribed(stakingTxHash string) bool {
 	return exists
 }
 
-func (ts *TrackedSubscriptions) GetSubscribedHashes() map[string]struct{} {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
-	subscribed := make(map[string]struct{}, len(ts.subscriptions))
-	for hash := range ts.subscriptions {
-		subscribed[hash] = struct{}{} // Just copying hashes
-	}
-	return subscribed
-}
-
-// AddSubscriptions adds multiple subscriptions at once
-func (ts *TrackedSubscriptions) AddSubscriptions(stakingTxHashes []string) {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-
-	for _, hash := range stakingTxHashes {
-		ts.subscriptions[hash] = struct{}{}
-	}
-}
-
 func (ts *TrackedSubscriptions) AddSubscription(stakingTxHash string) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
