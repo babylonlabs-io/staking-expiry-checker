@@ -40,6 +40,7 @@ func (s *Service) watchForSpendStakingTx(
 		if err := s.handleSpendingStakingTransaction(
 			quitCtx,
 			spendDetail.SpendingTx,
+			uint32(spendDetail.SpendingHeight),
 			spendDetail.SpenderInputIndex,
 			stakingTxHashHex,
 		); err != nil {
@@ -98,6 +99,7 @@ func (s *Service) watchForSpendUnbondingTx(
 func (s *Service) handleSpendingStakingTransaction(
 	ctx context.Context,
 	spendingTx *wire.MsgTx,
+	spendingHeight,
 	spendingInputIdx uint32,
 	stakingTxHashHex string,
 ) error {
@@ -133,18 +135,11 @@ func (s *Service) handleSpendingStakingTransaction(
 			Str("unbonding_tx", spendingTx.TxHash().String()).
 			Msg("staking tx has been spent through unbonding path")
 
-		// Blocking send - will wait if channel is full
-		select {
-		case s.unbondingDelegationChan <- delegation:
-			log.Debug().
-				Str("staking_tx", delegation.StakingTxHashHex).
-				Msg("sent delegation to unbonding handler")
-		case <-ctx.Done():
-			log.Error().
-				Str("staking_tx", delegation.StakingTxHashHex).
-				Msg("context cancelled while waiting to send to unbonding channel")
-			return ctx.Err()
-		}
+		unbondingEvent := types.NewUnbondingDelegationEvent(
+			delegation.StakingTxHashHex,
+			spendingHeight,
+		)
+		utils.PushOrQuit(s.unbondingDelegationChan, unbondingEvent, s.quit)
 
 		// Register unbonding spend notification
 		return s.registerUnbondingSpendNotification(delegation)
@@ -167,18 +162,8 @@ func (s *Service) handleSpendingStakingTransaction(
 		return err
 	}
 
-	// Blocking send - will wait if channel is full
-	select {
-	case s.withdrawnDelegationChan <- delegation:
-		log.Debug().
-			Str("staking_tx", delegation.StakingTxHashHex).
-			Msg("sent delegation to withdrawn handler")
-	case <-ctx.Done():
-		log.Error().
-			Str("staking_tx", delegation.StakingTxHashHex).
-			Msg("context cancelled while waiting to send to withdrawn channel")
-		return ctx.Err()
-	}
+	withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
+	utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
 
 	return nil
 }
@@ -211,18 +196,8 @@ func (s *Service) handleSpendingUnbondingTransaction(
 		return fmt.Errorf("failed to validate withdrawal tx: %w", withdrawalErr)
 	}
 
-	// Blocking send - will wait if channel is full
-	select {
-	case s.withdrawnDelegationChan <- delegation:
-		log.Debug().
-			Str("staking_tx", delegation.StakingTxHashHex).
-			Msg("sent delegation to withdrawn handler")
-	case <-ctx.Done():
-		log.Error().
-			Str("staking_tx", delegation.StakingTxHashHex).
-			Msg("context cancelled while waiting to send to withdrawn channel")
-		return ctx.Err()
-	}
+	withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
+	utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
 
 	return nil
 }

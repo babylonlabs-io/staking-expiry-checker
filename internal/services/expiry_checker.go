@@ -9,22 +9,22 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// // ProcessExpireCheck checks if the staking delegation has expired and updates the database.
-// // This method tolerate duplicated calls on the same stakingTxHashHex.
-// func (s *Service) ProcessExpireCheck(
-// 	ctx context.Context, stakingTxHashHex string,
-// 	startHeight, timelock uint64, txType types.StakingTxType,
-// ) *types.Error {
-// 	expireHeight := startHeight + timelock
-// 	err := s.db.SaveTimeLockExpireCheck(
-// 		ctx, stakingTxHashHex, expireHeight, txType.ToString(),
-// 	)
-// 	if err != nil {
-// 		log.Ctx(ctx).Err(err).Msg("Failed to save expire check")
-// 		return types.NewInternalServiceError(err)
-// 	}
-// 	return nil
-// }
+// SaveNewTimeLockExpire checks if the staking delegation has expired and updates the database.
+// This method tolerate duplicated calls on the same stakingTxHashHex.
+func (s *Service) SaveNewTimeLockExpire(
+	ctx context.Context, stakingTxHashHex string,
+	startHeight, timelock uint64, txType types.StakingTxType,
+) *types.Error {
+	expireHeight := startHeight + timelock
+	err := s.db.SaveTimeLockExpireCheck(
+		ctx, stakingTxHashHex, expireHeight, txType.ToString(),
+	)
+	if err != nil {
+		log.Ctx(ctx).Err(err).Msg("Failed to save expire check")
+		return types.NewInternalServiceError(err)
+	}
+	return nil
+}
 
 func (s *Service) ProcessExpiredDelegations(ctx context.Context) *types.Error {
 	btcTip, err := s.btc.GetBlockCount()

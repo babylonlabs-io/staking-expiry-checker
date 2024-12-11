@@ -126,3 +126,13 @@ func (db *Database) GetBTCDelegationsByStates(
 
 	return delegations, nil
 }
+
+func (db *Database) GetBTCDelegationState(
+	ctx context.Context, stakingTxHash string,
+) (*types.DelegationState, error) {
+	delegation, err := db.GetBTCDelegationByStakingTxHash(ctx, stakingTxHash)
+	if err != nil {
+		return nil, err
+	}
+	return &delegation.State, nil
+}

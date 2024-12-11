@@ -6,7 +6,7 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/btcclient"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/db/model"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 )
 
@@ -25,8 +25,8 @@ type Service struct {
 	trackedSubs *TrackedSubscriptions
 
 	// channels
-	unbondingDelegationChan chan *model.BTCDelegationDetails
-	withdrawnDelegationChan chan *model.BTCDelegationDetails
+	unbondingDelegationChan chan *types.UnbondingDelegationEvent
+	withdrawnDelegationChan chan *types.WithdrawnDelegationEvent
 }
 
 func NewService(
@@ -42,7 +42,7 @@ func NewService(
 		btcNotifier:             btcNotifier,
 		btc:                     btc,
 		trackedSubs:             NewTrackedSubscriptions(),
-		unbondingDelegationChan: make(chan *model.BTCDelegationDetails, 100), // buffered
-		withdrawnDelegationChan: make(chan *model.BTCDelegationDetails, 100), // buffered
+		unbondingDelegationChan: make(chan *types.UnbondingDelegationEvent, 100), // buffered
+		withdrawnDelegationChan: make(chan *types.WithdrawnDelegationEvent, 100), // buffered
 	}
 }

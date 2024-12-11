@@ -97,6 +97,36 @@ func (_m *DbInterface) GetBTCDelegationByStakingTxHash(ctx context.Context, stak
 	return r0, r1
 }
 
+// GetBTCDelegationState provides a mock function with given fields: ctx, stakingTxHash
+func (_m *DbInterface) GetBTCDelegationState(ctx context.Context, stakingTxHash string) (*types.DelegationState, error) {
+	ret := _m.Called(ctx, stakingTxHash)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetBTCDelegationState")
+	}
+
+	var r0 *types.DelegationState
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*types.DelegationState, error)); ok {
+		return rf(ctx, stakingTxHash)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *types.DelegationState); ok {
+		r0 = rf(ctx, stakingTxHash)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.DelegationState)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, stakingTxHash)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetBTCDelegationsByStates provides a mock function with given fields: ctx, states
 func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []types.DelegationState) ([]*model.BTCDelegationDetails, error) {
 	ret := _m.Called(ctx, states)
