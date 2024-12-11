@@ -10,7 +10,6 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 )
 
-// Define minimal interfaces for each poller type
 type ExpiryChecker interface {
 	ProcessExpiredDelegations(ctx context.Context) *types.Error
 }
@@ -34,7 +33,6 @@ type Poller struct {
 	quit       chan struct{}
 }
 
-// Constructors now accept interfaces instead of the full service
 func NewExpiryPoller(cfg config.PollerConfig, checker ExpiryChecker) *Poller {
 	return &Poller{
 		pollerType: ExpiryPoller,

@@ -38,3 +38,7 @@ func (db *Database) Ping(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (db *Database) Shutdown(ctx context.Context) error {
+	return db.client.Disconnect(ctx)
+}

@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
@@ -23,25 +26,31 @@ func init() {
 }
 
 func main() {
-	ctx := context.Background()
+	// Create a context that is cancelled on SIGINT or SIGTERM
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// setup cli commands and flags
+	// Setup signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Setup CLI commands and flags
 	if err := cli.Setup(); err != nil {
 		log.Fatal().Err(err).Msg("error while setting up cli")
 	}
 
-	// load config
+	// Load config
 	cfgPath := cli.GetConfigPath()
 	cfg, err := config.New(cfgPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg(fmt.Sprintf("error while loading config file: %s", cfgPath))
 	}
 
-	// initialize metrics with the metrics port from config
+	// Initialize metrics with the metrics port from config
 	metricsPort := cfg.Metrics.GetMetricsPort()
 	metrics.Init(metricsPort)
 
-	// create new db client
+	// Create new DB client
 	dbClient, err := db.New(ctx, cfg.Db)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating db client")
@@ -65,21 +74,17 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating service")
 	}
 
-	// Even though we pass service, it's viewed only through the specific interface
-	expiryPoller := poller.NewExpiryPoller(
-		cfg.Pollers.ExpiryChecker,
-		service, // service implements ExpiryChecker
-	)
+	// Start pollers
+	go poller.NewExpiryPoller(cfg.Pollers.ExpiryChecker, service).Start(ctx)
+	go poller.NewBTCSubscriberPoller(cfg.Pollers.BtcSubscriber, service).Start(ctx)
 
-	btcSubscriberPoller := poller.NewBTCSubscriberPoller(
-		cfg.Pollers.BtcSubscriber,
-		service, // service implements BTCSubscriber
-	)
-
-	// Start pollers in separate goroutines
-	go expiryPoller.Start(ctx)
-	go btcSubscriberPoller.Start(ctx)
-
+	// Start service handlers
 	go service.HandleUnbondingDelegationChannel(ctx)
 	go service.HandleWithdrawnDelegationChannel(ctx)
+
+	// Wait for a signal to shutdown
+	<-sigChan
+
+	// Cancel the context to signal all goroutines to stop
+	cancel()
 }
