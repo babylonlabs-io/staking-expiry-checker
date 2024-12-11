@@ -68,23 +68,23 @@ func (_m *DbInterface) FindExpiredDelegations(ctx context.Context, btcTipHeight 
 }
 
 // GetBTCDelegationByStakingTxHash provides a mock function with given fields: ctx, stakingTxHash
-func (_m *DbInterface) GetBTCDelegationByStakingTxHash(ctx context.Context, stakingTxHash string) (*model.BTCDelegationDetails, error) {
+func (_m *DbInterface) GetBTCDelegationByStakingTxHash(ctx context.Context, stakingTxHash string) (*model.DelegationDocument, error) {
 	ret := _m.Called(ctx, stakingTxHash)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetBTCDelegationByStakingTxHash")
 	}
 
-	var r0 *model.BTCDelegationDetails
+	var r0 *model.DelegationDocument
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.BTCDelegationDetails, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.DelegationDocument, error)); ok {
 		return rf(ctx, stakingTxHash)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *model.BTCDelegationDetails); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.DelegationDocument); ok {
 		r0 = rf(ctx, stakingTxHash)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.BTCDelegationDetails)
+			r0 = ret.Get(0).(*model.DelegationDocument)
 		}
 	}
 
@@ -128,23 +128,23 @@ func (_m *DbInterface) GetBTCDelegationState(ctx context.Context, stakingTxHash 
 }
 
 // GetBTCDelegationsByStates provides a mock function with given fields: ctx, states
-func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []types.DelegationState) ([]*model.BTCDelegationDetails, error) {
+func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []types.DelegationState) ([]*model.DelegationDocument, error) {
 	ret := _m.Called(ctx, states)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetBTCDelegationsByStates")
 	}
 
-	var r0 []*model.BTCDelegationDetails
+	var r0 []*model.DelegationDocument
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState) ([]*model.BTCDelegationDetails, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState) ([]*model.DelegationDocument, error)); ok {
 		return rf(ctx, states)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState) []*model.BTCDelegationDetails); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState) []*model.DelegationDocument); ok {
 		r0 = rf(ctx, states)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*model.BTCDelegationDetails)
+			r0 = ret.Get(0).([]*model.DelegationDocument)
 		}
 	}
 

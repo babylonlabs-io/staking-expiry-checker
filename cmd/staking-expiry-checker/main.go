@@ -17,6 +17,7 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/poller"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/services"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 )
 
 func init() {
@@ -46,6 +47,12 @@ func main() {
 		log.Fatal().Err(err).Msg(fmt.Sprintf("error while loading config file: %s", cfgPath))
 	}
 
+	paramsPath := cli.GetGlobalParamsPath()
+	params, err := types.NewGlobalParams(paramsPath)
+	if err != nil {
+		log.Fatal().Err(err).Msg(fmt.Sprintf("error while loading global params file: %s", paramsPath))
+	}
+
 	// Initialize metrics with the metrics port from config
 	metricsPort := cfg.Metrics.GetMetricsPort()
 	metrics.Init(metricsPort)
@@ -69,7 +76,7 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating btc notifier")
 	}
 
-	service := services.NewService(cfg, dbClient, btcNotifier, btcClient)
+	service := services.NewService(cfg, params, dbClient, btcNotifier, btcClient)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating service")
 	}
