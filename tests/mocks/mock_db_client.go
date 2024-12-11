@@ -157,36 +157,6 @@ func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []t
 	return r0, r1
 }
 
-// GetStakingParams provides a mock function with given fields: ctx, version
-func (_m *DbInterface) GetStakingParams(ctx context.Context, version uint32) (*model.StakingParams, error) {
-	ret := _m.Called(ctx, version)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetStakingParams")
-	}
-
-	var r0 *model.StakingParams
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint32) (*model.StakingParams, error)); ok {
-		return rf(ctx, version)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint32) *model.StakingParams); ok {
-		r0 = rf(ctx, version)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.StakingParams)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, uint32) error); ok {
-		r1 = rf(ctx, version)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Ping provides a mock function with given fields: ctx
 func (_m *DbInterface) Ping(ctx context.Context) error {
 	ret := _m.Called(ctx)
