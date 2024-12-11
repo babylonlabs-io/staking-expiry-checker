@@ -16,6 +16,7 @@ type Service struct {
 
 	cfg         *config.Config
 	btcNotifier notifier.ChainNotifier
+	params      *types.GlobalParams
 
 	// interfaces
 	db  db.DbInterface
@@ -31,6 +32,7 @@ type Service struct {
 
 func NewService(
 	cfg *config.Config,
+	params *types.GlobalParams,
 	db db.DbInterface,
 	btcNotifier notifier.ChainNotifier,
 	btc btcclient.BtcInterface,
@@ -40,6 +42,7 @@ func NewService(
 		cfg:                     cfg,
 		db:                      db,
 		btcNotifier:             btcNotifier,
+		params:                  params,
 		btc:                     btc,
 		trackedSubs:             NewTrackedSubscriptions(),
 		unbondingDelegationChan: make(chan *types.UnbondingDelegationEvent, 100), // buffered

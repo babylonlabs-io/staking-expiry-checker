@@ -43,7 +43,7 @@ func (s *Service) HandleUnbondingDelegationChannel(ctx context.Context) {
 
 			unbondingStartHeight := uint64(event.UnbondingStartHeight)
 
-			expireCheckErr := s.SaveNewTimeLockExpire(ctx, delegation.StakingTxHashHex, unbondingStartHeight, uint64(delegation.UnbondingTime), types.UnbondingTxType)
+			expireCheckErr := s.SaveNewTimeLockExpire(ctx, delegation.StakingTxHashHex, unbondingStartHeight, uint64(delegation.UnbondingTx.TimeLock), types.UnbondingTxType)
 			if expireCheckErr != nil {
 				log.Error().Err(expireCheckErr).
 					Str("staking_tx", delegation.StakingTxHashHex).

@@ -34,9 +34,9 @@ func (s *Service) ProcessBTCSubscriber(ctx context.Context) *types.Error {
 
 		err := s.registerStakingSpendNotification(
 			delegation.StakingTxHashHex,
-			delegation.StakingTxHex,
-			delegation.StakingOutputIdx,
-			delegation.StartHeight,
+			delegation.StakingTx.TxHex,
+			uint32(delegation.StakingTx.OutputIndex),
+			uint32(delegation.StakingTx.StartHeight),
 		)
 		if err != nil {
 			log.Error().

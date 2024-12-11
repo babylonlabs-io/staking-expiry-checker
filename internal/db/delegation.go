@@ -77,14 +77,14 @@ func (db *Database) transitionState(
 
 func (db *Database) GetBTCDelegationByStakingTxHash(
 	ctx context.Context, stakingTxHash string,
-) (*model.BTCDelegationDetails, error) {
+) (*model.DelegationDocument, error) {
 	filter := bson.M{"_id": stakingTxHash}
 
 	res := db.client.Database(db.dbName).
 		Collection(model.DelegationsCollection).
 		FindOne(ctx, filter)
 
-	var delegationDoc model.BTCDelegationDetails
+	var delegationDoc model.DelegationDocument
 	err := res.Decode(&delegationDoc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -102,7 +102,7 @@ func (db *Database) GetBTCDelegationByStakingTxHash(
 func (db *Database) GetBTCDelegationsByStates(
 	ctx context.Context,
 	states []types.DelegationState,
-) ([]*model.BTCDelegationDetails, error) {
+) ([]*model.DelegationDocument, error) {
 	// Convert states to a slice of strings
 	stateStrings := make([]string, len(states))
 	for i, state := range states {
@@ -119,7 +119,7 @@ func (db *Database) GetBTCDelegationsByStates(
 	}
 	defer cursor.Close(ctx)
 
-	var delegations []*model.BTCDelegationDetails
+	var delegations []*model.DelegationDocument
 	if err := cursor.All(ctx, &delegations); err != nil {
 		return nil, err
 	}

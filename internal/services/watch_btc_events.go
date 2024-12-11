@@ -62,7 +62,7 @@ func (s *Service) watchForSpendStakingTx(
 
 func (s *Service) watchForSpendUnbondingTx(
 	spendEvent *notifier.SpendEvent,
-	delegation *model.BTCDelegationDetails,
+	delegation *model.DelegationDocument,
 ) {
 	defer s.wg.Done()
 	quitCtx, cancel := s.quitContext()
@@ -108,13 +108,17 @@ func (s *Service) handleSpendingStakingTransaction(
 		return fmt.Errorf("failed to get BTC delegation by staking tx hash: %w", err)
 	}
 
-	params, err := s.db.GetStakingParams(ctx, delegation.ParamsVersion)
-	if err != nil {
-		return fmt.Errorf("failed to get staking params: %w", err)
+	paramsVersion := s.GetVersionedGlobalParamsByHeight(delegation.StakingTx.StartHeight)
+	if paramsVersion == nil {
+		log.Ctx(ctx).Error().Msg("failed to get global params")
+		return types.NewErrorWithMsg(
+			http.StatusInternalServerError, types.InternalServiceError,
+			"failed to get global params based on the staking tx height",
+		)
 	}
 
 	// First try to validate as unbonding tx
-	isUnbonding, err := s.IsValidUnbondingTx(spendingTx, delegation, params)
+	isUnbonding, err := s.IsValidUnbondingTx(spendingTx, delegation, paramsVersion)
 	if err != nil {
 		if errors.Is(err, types.ErrInvalidUnbondingTx) {
 			metrics.IncrementInvalidUnbondingTxCounter()
@@ -172,7 +176,7 @@ func (s *Service) handleSpendingUnbondingTransaction(
 	ctx context.Context,
 	spendingTx *wire.MsgTx,
 	spendingInputIdx uint32,
-	delegation *model.BTCDelegationDetails,
+	delegation *model.DelegationDocument,
 ) error {
 	params, err := s.db.GetStakingParams(ctx, delegation.ParamsVersion)
 	if err != nil {
@@ -208,10 +212,10 @@ func (s *Service) handleSpendingUnbondingTransaction(
 // but is invalid
 func (s *Service) IsValidUnbondingTx(
 	tx *wire.MsgTx,
-	delegation *model.BTCDelegationDetails,
-	params *model.StakingParams,
+	delegation *model.DelegationDocument,
+	params *types.VersionedGlobalParams,
 ) (bool, error) {
-	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTxHex)
+	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTx.TxHex)
 	if err != nil {
 		return false, fmt.Errorf("failed to deserialize staking tx: %w", err)
 	}
@@ -226,23 +230,20 @@ func (s *Service) IsValidUnbondingTx(
 	if !tx.TxIn[0].PreviousOutPoint.Hash.IsEqual(&stakingTxHash) {
 		return false, nil
 	}
-	if tx.TxIn[0].PreviousOutPoint.Index != delegation.StakingOutputIdx {
+	if tx.TxIn[0].PreviousOutPoint.Index != uint32(delegation.StakingTx.OutputIndex) {
 		return false, nil
 	}
 
-	stakerPk, err := bbn.NewBIP340PubKeyFromHex(delegation.StakerBtcPkHex)
+	stakerPk, err := bbn.NewBIP340PubKeyFromHex(delegation.StakerPkHex)
 	if err != nil {
 		return false, fmt.Errorf("failed to convert staker btc pkh to a public key: %w", err)
 	}
 
-	finalityProviderPks := make([]*btcec.PublicKey, len(delegation.FinalityProviderBtcPksHex))
-	for i, hex := range delegation.FinalityProviderBtcPksHex {
-		fpPk, err := bbn.NewBIP340PubKeyFromHex(hex)
-		if err != nil {
-			return false, fmt.Errorf("failed to convert finality provider pk hex to a public key: %w", err)
-		}
-		finalityProviderPks[i] = fpPk.MustToBTCPK()
+	fpPKBIP340, err := bbn.NewBIP340PubKeyFromHex(delegation.FinalityProviderPkHex)
+	if err != nil {
+		return false, fmt.Errorf("failed to convert finality provider pk hex to a public key: %w", err)
 	}
+	fpPK := fpPKBIP340.MustToBTCPK()
 
 	covPks := make([]*btcec.PublicKey, len(params.CovenantPks))
 	for i, hex := range params.CovenantPks {
@@ -255,16 +256,16 @@ func (s *Service) IsValidUnbondingTx(
 
 	btcParams := utils.GetBTCParams(s.cfg.Btc.NetParams)
 
-	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingOutputIdx].Value)
+	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingTx.OutputIndex].Value)
 
 	// 3. re-build the unbonding path script and check whether the script from
 	// the witness matches
 	stakingInfo, err := btcstaking.BuildStakingInfo(
 		stakerPk.MustToBTCPK(),
-		finalityProviderPks,
+		[]*btcec.PublicKey{fpPK},
 		covPks,
-		params.CovenantQuorum,
-		uint16(delegation.StakingTime),
+		uint32(params.CovenantQuorum),
+		uint16(delegation.StakingTx.TimeLock),
 		stakingValue,
 		btcParams,
 	)
@@ -308,8 +309,8 @@ func (s *Service) IsValidUnbondingTx(
 		stakerPk.MustToBTCPK(),
 		finalityProviderPks,
 		covPks,
-		params.CovenantQuorum,
-		uint16(delegation.UnbondingTime),
+		uint32(params.CovenantQuorum),
+		uint16(delegation.UnbondingTx.TimeLock),
 		expectedUnbondingOutputValue,
 		btcParams,
 	)
@@ -330,16 +331,16 @@ func (s *Service) IsValidUnbondingTx(
 func (s *Service) validateWithdrawalTxFromStaking(
 	tx *wire.MsgTx,
 	spendingInputIdx uint32,
-	delegation *model.BTCDelegationDetails,
+	delegation *model.DelegationDocument,
 	params *model.StakingParams,
 ) error {
-	stakerPk, err := bbn.NewBIP340PubKeyFromHex(delegation.StakerBtcPkHex)
+	stakerPk, err := bbn.NewBIP340PubKeyFromHex(delegation.StakerPkHex)
 	if err != nil {
 		return fmt.Errorf("failed to convert staker btc pkh to a public key: %w", err)
 	}
 
-	finalityProviderPks := make([]*btcec.PublicKey, len(delegation.FinalityProviderBtcPksHex))
-	for i, hex := range delegation.FinalityProviderBtcPksHex {
+	finalityProviderPks := make([]*btcec.PublicKey, len(delegation.FinalityProviderPkHex))
+	for i, hex := range delegation.FinalityProviderPkHex {
 		fpPk, err := bbn.NewBIP340PubKeyFromHex(hex)
 		if err != nil {
 			return fmt.Errorf("failed to convert finality provider pk hex to a public key: %w", err)
@@ -358,12 +359,12 @@ func (s *Service) validateWithdrawalTxFromStaking(
 
 	btcParams := utils.GetBTCParams(s.cfg.Btc.NetParams)
 
-	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTxHex)
+	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTx.TxHex)
 	if err != nil {
 		return fmt.Errorf("failed to deserialize staking tx: %w", err)
 	}
 
-	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingOutputIdx].Value)
+	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingTx.OutputIndex].Value)
 
 	// 3. re-build the unbonding path script and check whether the script from
 	// the witness matches
@@ -372,7 +373,7 @@ func (s *Service) validateWithdrawalTxFromStaking(
 		finalityProviderPks,
 		covPks,
 		params.CovenantQuorum,
-		uint16(delegation.StakingTime),
+		uint16(delegation.StakingTx.TimeLock),
 		stakingValue,
 		btcParams,
 	)
@@ -401,17 +402,17 @@ func (s *Service) validateWithdrawalTxFromStaking(
 
 func (s *Service) validateWithdrawalTxFromUnbonding(
 	tx *wire.MsgTx,
-	delegation *model.BTCDelegationDetails,
+	delegation *model.DelegationDocument,
 	spendingInputIdx uint32,
 	params *model.StakingParams,
 ) error {
-	stakerPk, err := bbn.NewBIP340PubKeyFromHex(delegation.StakerBtcPkHex)
+	stakerPk, err := bbn.NewBIP340PubKeyFromHex(delegation.StakerPkHex)
 	if err != nil {
 		return fmt.Errorf("failed to convert staker btc pkh to a public key: %w", err)
 	}
 
-	finalityProviderPks := make([]*btcec.PublicKey, len(delegation.FinalityProviderBtcPksHex))
-	for i, hex := range delegation.FinalityProviderBtcPksHex {
+	finalityProviderPks := make([]*btcec.PublicKey, len(delegation.FinalityProviderPkHex))
+	for i, hex := range delegation.FinalityProviderPkHex {
 		fpPk, err := bbn.NewBIP340PubKeyFromHex(hex)
 		if err != nil {
 			return fmt.Errorf("failed to convert finality provider pk hex to a public key: %w", err)
@@ -430,14 +431,14 @@ func (s *Service) validateWithdrawalTxFromUnbonding(
 
 	btcParams := utils.GetBTCParams(s.cfg.Btc.NetParams)
 
-	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTxHex)
+	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTx.TxHex)
 	if err != nil {
 		return fmt.Errorf("failed to deserialize staking tx: %w", err)
 	}
 
 	// re-build the time-lock path script and check whether the script from
 	// the witness matches
-	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingOutputIdx].Value)
+	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingTx.OutputIndex].Value)
 	unbondingFee := btcutil.Amount(params.UnbondingFeeSat)
 	expectedUnbondingOutputValue := stakingValue - unbondingFee
 	unbondingInfo, err := btcstaking.BuildUnbondingInfo(
@@ -445,7 +446,7 @@ func (s *Service) validateWithdrawalTxFromUnbonding(
 		finalityProviderPks,
 		covPks,
 		params.CovenantQuorum,
-		uint16(delegation.UnbondingTime),
+		uint16(delegation.UnbondingTx.TimeLock),
 		expectedUnbondingOutputValue,
 		btcParams,
 	)
@@ -524,9 +525,9 @@ func (s *Service) registerStakingSpendNotification(
 }
 
 func (s *Service) registerUnbondingSpendNotification(
-	delegation *model.BTCDelegationDetails,
+	delegation *model.DelegationDocument,
 ) *types.Error {
-	unbondingTxBytes, parseErr := hex.DecodeString(delegation.UnbondingTx)
+	unbondingTxBytes, parseErr := hex.DecodeString(delegation.UnbondingTx.TxHex)
 	if parseErr != nil {
 		return types.NewError(
 			http.StatusInternalServerError,
@@ -557,7 +558,7 @@ func (s *Service) registerUnbondingSpendNotification(
 	spendEv, btcErr := s.btcNotifier.RegisterSpendNtfn(
 		&unbondingOutpoint,
 		unbondingTx.TxOut[0].PkScript,
-		delegation.StartHeight,
+		uint32(delegation.UnbondingTx.StartHeight),
 	)
 	if btcErr != nil {
 		return types.NewError(
