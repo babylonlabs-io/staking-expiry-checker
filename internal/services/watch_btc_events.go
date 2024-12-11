@@ -11,6 +11,7 @@ import (
 	"github.com/babylonlabs-io/babylon/btcstaking"
 	bbn "github.com/babylonlabs-io/babylon/types"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db/model"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -114,20 +115,16 @@ func (s *Service) handleSpendingStakingTransaction(
 	isUnbonding, err := s.IsValidUnbondingTx(spendingTx, delegation, params)
 	if err != nil {
 		if errors.Is(err, types.ErrInvalidUnbondingTx) {
-			// TODO: here
-			// invalidTransactionsCounter.WithLabelValues("confirmed_unbonding_transactions").Inc()
-			// si.logger.Warn("found an invalid unbonding tx",
-			// 	zap.String("tx_hash", tx.TxHash().String()),
-			// 	zap.Uint64("height", height),
-			// 	zap.Bool("is_confirmed", true),
-			// 	zap.Error(err),
-			// )
+			metrics.IncrementInvalidUnbondingTxCounter()
+			log.Error().
+				Err(err).
+				Str("staking_tx", delegation.StakingTxHashHex).
+				Msg("found an invalid unbonding tx")
 
 			return nil
 		}
-		// record metrics
-		// failedVerifyingUnbondingTxsCounter.Inc()
-		// return err
+
+		metrics.IncrementFailedVerifyingUnbondingTxCounter()
 		return fmt.Errorf("failed to validate unbonding tx: %w", err)
 	}
 	if isUnbonding {
@@ -150,25 +147,23 @@ func (s *Service) handleSpendingStakingTransaction(
 		}
 
 		// Register unbonding spend notification
-		return s.registerUnbondingSpendNotification(ctx, delegation)
+		return s.registerUnbondingSpendNotification(delegation)
 	}
 
 	// Try to validate as withdrawal transaction
 	withdrawalErr := s.validateWithdrawalTxFromStaking(spendingTx, spendingInputIdx, delegation, params)
 	if withdrawalErr != nil {
 		if errors.Is(err, types.ErrInvalidWithdrawalTx) {
-			// invalidTransactionsCounter.WithLabelValues("confirmed_withdraw_staking_transactions").Inc()
-			// si.logger.Warn("found an invalid withdrawal tx from staking",
-			// 	zap.String("tx_hash", tx.TxHash().String()),
-			// 	zap.Uint64("height", height),
-			// 	zap.Bool("is_confirmed", true),
-			// 	zap.Error(err),
-			// )
+			metrics.IncrementInvalidStakingWithdrawalTxCounter()
+			log.Error().
+				Err(withdrawalErr).
+				Str("staking_tx", delegation.StakingTxHashHex).
+				Msg("found an invalid withdrawal tx from staking")
 
 			return nil
 		}
 
-		//failedProcessingWithdrawTxsFromStakingCounter.Inc()
+		metrics.IncrementFailedVerifyingStakingWithdrawalTxCounter()
 		return err
 	}
 
@@ -203,16 +198,16 @@ func (s *Service) handleSpendingUnbondingTransaction(
 	withdrawalErr := s.validateWithdrawalTxFromUnbonding(spendingTx, delegation, spendingInputIdx, params)
 	if withdrawalErr != nil {
 		if errors.Is(withdrawalErr, types.ErrInvalidWithdrawalTx) {
-			// invalidTransactionsCounter.WithLabelValues("confirmed_withdraw_staking_transactions").Inc()
-			// si.logger.Warn("found an invalid withdrawal tx from staking",
-			// 	zap.String("tx_hash", tx.TxHash().String()),
-			// 	zap.Uint64("height", height),
-			// 	zap.Bool("is_confirmed", true),
-			// 	zap.Error(err),
-			// )
+			metrics.IncrementInvalidUnbondingWithdrawalTxCounter()
+			log.Error().
+				Err(withdrawalErr).
+				Str("staking_tx", delegation.StakingTxHashHex).
+				Msg("found an invalid withdrawal tx from unbonding")
 
 			return nil
 		}
+
+		metrics.IncrementFailedVerifyingUnbondingWithdrawalTxCounter()
 		return fmt.Errorf("failed to validate withdrawal tx: %w", withdrawalErr)
 	}
 
@@ -228,8 +223,6 @@ func (s *Service) handleSpendingUnbondingTransaction(
 			Msg("context cancelled while waiting to send to withdrawn channel")
 		return ctx.Err()
 	}
-
-	// todo: handle withdrawal here
 
 	return nil
 }
@@ -520,7 +513,6 @@ func (s *Service) quitContext() (context.Context, func()) {
 }
 
 func (s *Service) registerStakingSpendNotification(
-	ctx context.Context,
 	stakingTxHashHex string,
 	stakingTxHex string,
 	stakingOutputIdx uint32,
@@ -557,7 +549,6 @@ func (s *Service) registerStakingSpendNotification(
 }
 
 func (s *Service) registerUnbondingSpendNotification(
-	ctx context.Context,
 	delegation *model.BTCDelegationDetails,
 ) *types.Error {
 	unbondingTxBytes, parseErr := hex.DecodeString(delegation.UnbondingTx)
