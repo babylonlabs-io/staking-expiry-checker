@@ -40,7 +40,9 @@ stop-service:
 	
 run-local:
 	./bin/local-startup.sh;
-	go run cmd/staking-expiry-checker/main.go --config config/config-local.yml
+	go run cmd/staking-expiry-checker/main.go \
+	--config config/config-local.yml \
+	--params config/global-params.json
 
 generate-mock-interface:
 	cd internal/db && mockery --name=DbInterface --output=../../tests/mocks --outpkg=mocks --filename=mock_db_client.go
