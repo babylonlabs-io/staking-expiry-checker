@@ -18,16 +18,16 @@ func (s *Service) HandleUnbondingDelegationChannel(ctx context.Context) {
 				Msg("processing unbonding delegation")
 
 			if utils.Contains(utils.OutdatedStatesForUnbonding(), delegation.State) {
-				// Ignore the message as the delegation state already passed the unbonding state. This is an outdated duplication
-				log.Ctx(ctx).Debug().Str("StakingTxHashHex", delegation.StakingTxHashHex).
-					Msg("delegation state is outdated for unbonding event")
+				debugMsg := "delegation state is outdated for unbonding event"
+				log.Ctx(ctx).Debug().Str("stakingTxHashHex", delegation.StakingTxHashHex).
+					Msg(debugMsg)
 				continue
 			}
 
-			if !utils.Contains(utils.QualifiedStatesToWithdraw(), delegation.State) {
-				errMsg := "delegation is not in the qualified state to transition to withdrawn"
-				log.Ctx(ctx).Warn().Str("stakingTxHashHex", delegation.StakingTxHashHex).
-					Str("state", delegation.State.ToString()).Msg(errMsg)
+			if !utils.Contains(utils.QualifiedStatesToUnbonding(), delegation.State) {
+				debugMsg := "delegation is not in the qualified state to transition to unbonding"
+				log.Ctx(ctx).Debug().Str("stakingTxHashHex", delegation.StakingTxHashHex).
+					Str("state", delegation.State.ToString()).Msg(debugMsg)
 				continue
 			}
 
@@ -63,9 +63,16 @@ func (s *Service) HandleWithdrawnDelegationChannel(ctx context.Context) {
 				Msg("processing withdrawn delegation")
 
 			if utils.Contains(utils.OutdatedStatesForWithdraw(), delegation.State) {
-				// Ignore the message as the delegation state is withdrawn. Nothing to do anymore
+				debugMsg := "delegation state is outdated for withdrawn event"
 				log.Ctx(ctx).Debug().Str("stakingTxHashHex", delegation.StakingTxHashHex).
-					Msg("delegation state is outdated for withdrawn event")
+					Msg(debugMsg)
+				continue
+			}
+
+			if !utils.Contains(utils.QualifiedStatesToWithdraw(), delegation.State) {
+				debugMsg := "delegation is not in the qualified state to transition to withdrawn"
+				log.Ctx(ctx).Debug().Str("stakingTxHashHex", delegation.StakingTxHashHex).
+					Str("state", delegation.State.ToString()).Msg(debugMsg)
 				continue
 			}
 
