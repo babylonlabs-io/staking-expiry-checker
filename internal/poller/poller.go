@@ -26,8 +26,6 @@ const (
 	BTCSubscriberPoller PollerType = "btc-subscriber"
 )
 
-type PollerOperation func(ctx context.Context) *types.Error
-
 type Poller struct {
 	pollerType PollerType
 	poll       func(ctx context.Context) *types.Error
@@ -87,13 +85,3 @@ func (p *Poller) Start(ctx context.Context) {
 func (p *Poller) Stop() {
 	close(p.quit)
 }
-
-// func (p *Poller) poll(ctx context.Context) error {
-// 	log.Debug().Msg("Polling started")
-// 	if err := p.service.ProcessExpiredDelegations(ctx); err != nil {
-// 		log.Error().Err(err).Msg("Error processing expired delegations")
-// 		return err
-// 	}
-// 	log.Debug().Msg("Polling completed")
-// 	return nil
-// }

@@ -81,4 +81,5 @@ func main() {
 	go btcSubscriberPoller.Start(ctx)
 
 	go service.HandleUnbondingDelegationChannel(ctx)
+	go service.HandleWithdrawnDelegationChannel(ctx)
 }

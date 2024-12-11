@@ -29,6 +29,10 @@ type DbInterface interface {
 		ctx context.Context,
 		stakingTxHashHex string,
 	) error
+	TransitionToWithdrawnState(
+		ctx context.Context,
+		stakingTxHashHex string,
+	) error
 	GetBTCDelegationByStakingTxHash(
 		ctx context.Context, stakingTxHash string,
 	) (*model.BTCDelegationDetails, error)

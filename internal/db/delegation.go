@@ -32,6 +32,17 @@ func (db *Database) TransitionToUnbondingState(
 	)
 }
 
+func (db *Database) TransitionToWithdrawnState(ctx context.Context, stakingTxHashHex string) error {
+	err := db.transitionState(
+		ctx, stakingTxHashHex, types.Withdrawn,
+		utils.QualifiedStatesToWithdraw(),
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // TransitionState updates the state of a staking transaction to a new state
 // It returns an NotFoundError if the staking transaction is not found or not
 // in the eligible state to transition
