@@ -76,6 +76,10 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating btc notifier")
 	}
 
+	if err := btcNotifier.Start(); err != nil {
+		log.Fatal().Err(err).Msg("failed to start btc chain notifier")
+	}
+
 	service := services.NewService(cfg, params, dbClient, btcNotifier, btcClient)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating service")
