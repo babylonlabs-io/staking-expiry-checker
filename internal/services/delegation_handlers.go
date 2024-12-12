@@ -8,8 +8,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// HandleUnbondingDelegationChannel processes unbonding delegations
-func (s *Service) HandleUnbondingDelegationChannel(ctx context.Context) {
+// handleUnbondingDelegation processes unbonding delegations
+func (s *Service) handleUnbondingDelegation(ctx context.Context) {
+	s.wg.Add(1)
 	defer s.wg.Done()
 	for {
 		select {
@@ -72,8 +73,9 @@ func (s *Service) HandleUnbondingDelegationChannel(ctx context.Context) {
 	}
 }
 
-// HandleWithdrawnDelegationChannel processes withdrawn delegations
-func (s *Service) HandleWithdrawnDelegationChannel(ctx context.Context) {
+// handleWithdrawnDelegation processes withdrawn delegations
+func (s *Service) handleWithdrawnDelegation(ctx context.Context) {
+	s.wg.Add(1)
 	defer s.wg.Done()
 	for {
 		select {
@@ -124,4 +126,21 @@ func (s *Service) HandleWithdrawnDelegationChannel(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// SaveNewTimeLockExpire checks if the staking delegation has expired and updates the database.
+// This method tolerate duplicated calls on the same stakingTxHashHex.
+func (s *Service) SaveNewTimeLockExpire(
+	ctx context.Context, stakingTxHashHex string,
+	startHeight, timelock uint64, txType types.StakingTxType,
+) *types.Error {
+	expireHeight := startHeight + timelock
+	err := s.db.SaveTimeLockExpireCheck(
+		ctx, stakingTxHashHex, expireHeight, txType.ToString(),
+	)
+	if err != nil {
+		log.Ctx(ctx).Err(err).Msg("Failed to save expire check")
+		return types.NewInternalServiceError(err)
+	}
+	return nil
 }

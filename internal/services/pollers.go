@@ -9,24 +9,57 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// SaveNewTimeLockExpire checks if the staking delegation has expired and updates the database.
-// This method tolerate duplicated calls on the same stakingTxHashHex.
-func (s *Service) SaveNewTimeLockExpire(
-	ctx context.Context, stakingTxHashHex string,
-	startHeight, timelock uint64, txType types.StakingTxType,
-) *types.Error {
-	expireHeight := startHeight + timelock
-	err := s.db.SaveTimeLockExpireCheck(
-		ctx, stakingTxHashHex, expireHeight, txType.ToString(),
-	)
+func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
+	// Get delegations that need BTC notifications
+	delegations, err := s.db.GetBTCDelegationsByStates(ctx, []types.DelegationState{
+		types.Unbonded,
+		types.UnbondingRequested,
+	})
 	if err != nil {
-		log.Ctx(ctx).Err(err).Msg("Failed to save expire check")
+		log.Error().Err(err).Msg("Failed to get delegations for BTC subscription")
 		return types.NewInternalServiceError(err)
 	}
+
+	if len(delegations) == 0 {
+		log.Debug().Msg("No delegations found for BTC subscription")
+		return nil
+	}
+
+	// Process each delegation
+	for _, delegation := range delegations {
+		if s.trackedSubs.IsSubscribed(delegation.StakingTxHashHex) {
+			log.Debug().
+				Str("stakingTxHash", delegation.StakingTxHashHex).
+				Msg("Delegation already subscribed, skipping")
+			continue
+		}
+
+		err := s.registerStakingSpendNotification(
+			delegation.StakingTxHashHex,
+			delegation.StakingTx.TxHex,
+			uint32(delegation.StakingTx.OutputIndex),
+			uint32(delegation.StakingTx.StartHeight),
+		)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("stakingTxHash", delegation.StakingTxHashHex).
+				Msg("Failed to register staking spend notification")
+			return types.NewInternalServiceError(err)
+		}
+
+		// Add to tracked subscriptions after successful registration
+		s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+
+		log.Debug().
+			Str("stakingTxHash", delegation.StakingTxHashHex).
+			Msg("Successfully registered BTC notification")
+	}
+
 	return nil
 }
 
-func (s *Service) ProcessExpiredDelegations(ctx context.Context) *types.Error {
+func (s *Service) processExpiredDelegations(ctx context.Context) *types.Error {
 	btcTip, err := s.btc.GetBlockCount()
 	if err != nil {
 		log.Error().Err(err).Msg("Error getting BTC tip height")

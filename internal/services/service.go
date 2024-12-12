@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/btcclient"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/poller"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	notifier "github.com/lightningnetwork/lnd/chainntnfs"
 	"github.com/rs/zerolog/log"
@@ -67,16 +67,70 @@ func (s *Service) RunUntilShutdown(ctx context.Context) error {
 	defer s.btcNotifier.Stop()
 
 	// Start pollers
-	go poller.NewExpiryPoller(s.cfg.Pollers.ExpiryChecker, s).Start(ctx)
-	go poller.NewBTCSubscriberPoller(s.cfg.Pollers.BtcSubscriber, s).Start(ctx)
+	go s.startExpiryPoller(ctx)
+	go s.startBTCSubscriberPoller(ctx)
 
 	// Start service handlers
-	go s.HandleUnbondingDelegationChannel(ctx)
-	go s.HandleWithdrawnDelegationChannel(ctx)
+	go s.handleUnbondingDelegation(ctx)
+	go s.handleWithdrawnDelegation(ctx)
 
 	// Wait for context cancellation
 	<-ctx.Done()
 	log.Info().Msg("Shutdown signal received, stopping service...")
 
+	// Signal all components to stop
+	close(s.quit)
+
+	// Wait for all goroutines to finish
+	s.wg.Wait()
+
 	return nil
+}
+
+func (s *Service) startExpiryPoller(ctx context.Context) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(s.cfg.Pollers.ExpiryChecker.Interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.ExpiryChecker.Timeout)
+			if err := s.processExpiredDelegations(pollingCtx); err != nil {
+				log.Error().Err(err).Msg("Error processing expired delegations")
+			}
+			cancel()
+		case <-ctx.Done():
+			log.Info().Msg("Expiry poller stopped due to context cancellation")
+			return
+		case <-s.quit:
+			return
+		}
+	}
+}
+
+func (s *Service) startBTCSubscriberPoller(ctx context.Context) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(s.cfg.Pollers.BtcSubscriber.Interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.BtcSubscriber.Timeout)
+			if err := s.processBTCSubscriber(pollingCtx); err != nil {
+				log.Error().Err(err).Msg("Error processing BTC subscriptions")
+			}
+			cancel()
+		case <-ctx.Done():
+			log.Info().Msg("BTC subscriber poller stopped due to context cancellation")
+			return
+		case <-s.quit:
+			return
+		}
+	}
 }
