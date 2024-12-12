@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -14,8 +13,6 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/btcclient"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/poller"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/services"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 )
@@ -27,14 +24,6 @@ func init() {
 }
 
 func main() {
-	// Create a context that is cancelled on SIGINT or SIGTERM
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Setup signal handling
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
 	// Setup CLI commands and flags
 	if err := cli.Setup(); err != nil {
 		log.Fatal().Err(err).Msg("error while setting up cli")
@@ -53,9 +42,9 @@ func main() {
 		log.Fatal().Err(err).Msg(fmt.Sprintf("error while loading global params file: %s", paramsPath))
 	}
 
-	// Initialize metrics with the metrics port from config
-	metricsPort := cfg.Metrics.GetMetricsPort()
-	metrics.Init(metricsPort)
+	// Create context with signal handling
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
 	// Create new DB client
 	dbClient, err := db.New(ctx, cfg.Db)
@@ -81,21 +70,7 @@ func main() {
 	}
 
 	service := services.NewService(cfg, params, dbClient, btcNotifier, btcClient)
-	if err != nil {
-		log.Fatal().Err(err).Msg("error while creating service")
+	if err := service.RunUntilShutdown(ctx); err != nil {
+		log.Fatal().Err(err).Msg("failed to start service")
 	}
-
-	// Start pollers
-	go poller.NewExpiryPoller(cfg.Pollers.ExpiryChecker, service).Start(ctx)
-	go poller.NewBTCSubscriberPoller(cfg.Pollers.BtcSubscriber, service).Start(ctx)
-
-	// Start service handlers
-	go service.HandleUnbondingDelegationChannel(ctx)
-	go service.HandleWithdrawnDelegationChannel(ctx)
-
-	// Wait for a signal to shutdown
-	<-sigChan
-
-	// Cancel the context to signal all goroutines to stop
-	cancel()
 }
