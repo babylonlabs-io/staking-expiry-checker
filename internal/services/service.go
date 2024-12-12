@@ -64,7 +64,11 @@ func (s *Service) RunUntilShutdown(ctx context.Context) error {
 	if err := s.btcNotifier.Start(); err != nil {
 		return fmt.Errorf("failed to start btc chain notifier: %w", err)
 	}
-	defer s.btcNotifier.Stop()
+	defer func() {
+		if err := s.btcNotifier.Stop(); err != nil {
+			log.Error().Err(err).Msg("failed to stop btc chain notifier")
+		}
+	}()
 
 	// Start pollers
 	go s.startExpiryPoller(ctx)
