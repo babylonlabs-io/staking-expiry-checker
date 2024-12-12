@@ -2,21 +2,21 @@ pollers:
   log-level: debug
   expiry-checker:
     interval: 5s
-    timeout: 10s
+    timeout: 1000s
   btc-subscriber:
     interval: 5s
-    timeout: 10s
+    timeout: 1000s
 db:
   username: root
   password: example
   address: "mongodb://localhost:27017"
   db-name: staking-api-service
 btc:
-  endpoint: localhost:18332
-  disable-tls: false
-  net-params: testnet
-  rpc-user: rpcuser
-  rpc-pass: rpcpass
+  endpoint: 127.0.0.1:38332  # signet endpoint
+  disable-tls: true          # should be disabled for local testing
+  net-params: signet         # signet network params
+  rpc-user: rpcuser          # rpc user
+  rpc-pass: rpcpass          # rpc pass
 metrics:
   host: 0.0.0.0
   port: 2112
