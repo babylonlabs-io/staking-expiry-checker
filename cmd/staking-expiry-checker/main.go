@@ -46,17 +46,19 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	// Create new DB client
+	// Create DB client
 	dbClient, err := db.New(ctx, cfg.Db)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating db client")
 	}
 
+	// Create BTC client
 	btcClient, err := btcclient.NewBtcClient(&cfg.Btc)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating btc client")
 	}
 
+	// Create BTC notifier
 	btcNotifier, err := btcclient.NewBTCNotifier(
 		&cfg.Btc,
 		&btcclient.EmptyHintCache{},
@@ -65,10 +67,7 @@ func main() {
 		log.Fatal().Err(err).Msg("error while creating btc notifier")
 	}
 
-	if err := btcNotifier.Start(); err != nil {
-		log.Fatal().Err(err).Msg("failed to start btc chain notifier")
-	}
-
+	// Create service
 	service := services.NewService(cfg, params, dbClient, btcNotifier, btcClient)
 	if err := service.RunUntilShutdown(ctx); err != nil {
 		log.Fatal().Err(err).Msg("failed to start service")
