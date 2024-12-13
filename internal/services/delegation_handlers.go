@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"net/http"
 
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 	"github.com/rs/zerolog/log"
@@ -42,9 +44,12 @@ func (s *Service) handleUnbondingDelegation(ctx context.Context) {
 				continue
 			}
 
-			unbondingStartHeight := uint64(event.UnbondingStartHeight)
-
-			expireCheckErr := s.SaveNewTimeLockExpire(ctx, delegation.StakingTxHashHex, unbondingStartHeight, uint64(delegation.UnbondingTx.TimeLock), types.UnbondingTxType)
+			expireCheckErr := s.SaveNewTimeLockExpire(ctx,
+				delegation.StakingTxHashHex,
+				event.UnbondingStartHeight,
+				event.UnbondingTimeLock,
+				types.UnbondingTxType,
+			)
 			if expireCheckErr != nil {
 				log.Error().Err(expireCheckErr).
 					Str("staking_tx", delegation.StakingTxHashHex).
@@ -54,6 +59,8 @@ func (s *Service) handleUnbondingDelegation(ctx context.Context) {
 
 			transitionErr := s.db.TransitionToUnbondingState(
 				ctx, delegation.StakingTxHashHex,
+				event.UnbondingStartHeight, event.UnbondingTimeLock, event.UnbondingOutputIndex,
+				event.UnbondingTxHex, event.UnbondingStartTimestamp,
 			)
 			if transitionErr != nil {
 				log.Error().
@@ -71,6 +78,25 @@ func (s *Service) handleUnbondingDelegation(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// TransitionToUnbondingState process the actual confirmed unbonding tx by updating the delegation state to `unbonding`
+// It returns true if the delegation is found and successfully transitioned to unbonding state.
+func (s *Service) TransitionToUnbondingState(
+	ctx context.Context, stakingTxHashHex string,
+	unbondingStartHeight, unbondingTimelock, unbondingOutputIndex uint64,
+	unbondingTxHex string, unbondingStartTimestamp int64,
+) *types.Error {
+	err := s.db.TransitionToUnbondingState(ctx, stakingTxHashHex, unbondingStartHeight, unbondingTimelock, unbondingOutputIndex, unbondingTxHex, unbondingStartTimestamp)
+	if err != nil {
+		if ok := db.IsNotFoundError(err); ok {
+			log.Ctx(ctx).Warn().Str("stakingTxHashHex", stakingTxHashHex).Err(err).Msg("delegation not found or no longer eligible for unbonding")
+			return nil
+		}
+		log.Ctx(ctx).Error().Str("stakingTxHashHex", stakingTxHashHex).Err(err).Msg("failed to transition to unbonding state")
+		return types.NewError(http.StatusInternalServerError, types.InternalServiceError, err)
+	}
+	return nil
 }
 
 // handleWithdrawnDelegation processes withdrawn delegations
@@ -109,6 +135,7 @@ func (s *Service) handleWithdrawnDelegation(ctx context.Context) {
 
 			transitionErr := s.db.TransitionToWithdrawnState(
 				ctx, delegation.StakingTxHashHex,
+				utils.QualifiedStatesToWithdraw(),
 			)
 			if transitionErr != nil {
 				log.Error().

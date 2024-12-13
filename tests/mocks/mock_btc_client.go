@@ -37,6 +37,34 @@ func (_m *BtcInterface) GetBlockCount() (int64, error) {
 	return r0, r1
 }
 
+// GetBlockTimestamp provides a mock function with given fields: height
+func (_m *BtcInterface) GetBlockTimestamp(height uint64) (int64, error) {
+	ret := _m.Called(height)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetBlockTimestamp")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(uint64) (int64, error)); ok {
+		return rf(height)
+	}
+	if rf, ok := ret.Get(0).(func(uint64) int64); ok {
+		r0 = rf(height)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(uint64) error); ok {
+		r1 = rf(height)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewBtcInterface creates a new instance of BtcInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewBtcInterface(t interface {

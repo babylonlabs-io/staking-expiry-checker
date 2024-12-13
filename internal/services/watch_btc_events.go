@@ -139,9 +139,25 @@ func (s *Service) handleSpendingStakingTransaction(
 			Str("unbonding_tx", spendingTx.TxHash().String()).
 			Msg("staking tx has been spent through unbonding path")
 
+		unbondingTxHex, err := utils.SerializeBtcTransaction(spendingTx)
+		if err != nil {
+			return fmt.Errorf("failed to serialize unbonding tx: %w", err)
+		}
+
+		unbondingTxTimestamp, err := s.btc.GetBlockTimestamp(uint64(spendingHeight))
+		if err != nil {
+			return fmt.Errorf("failed to get block timestamp: %w", err)
+		}
+
 		unbondingEvent := types.NewUnbondingDelegationEvent(
 			delegation.StakingTxHashHex,
-			spendingHeight,
+			uint64(spendingHeight),
+			unbondingTxTimestamp,
+			paramsVersion.UnbondingTime,
+			// valid unbonding tx always has one output
+			uint64(0),
+			unbondingTxHex,
+			spendingTx.TxHash().String(),
 		)
 		utils.PushOrQuit(s.unbondingDelegationChan, unbondingEvent, s.quit)
 

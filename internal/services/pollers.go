@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/db/model"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 	"github.com/rs/zerolog/log"
 )
 
@@ -75,7 +75,13 @@ func (s *Service) processExpiredDelegations(ctx context.Context) *types.Error {
 
 	// Process each delegation in the batch
 	for _, delegation := range expiredDelegations {
-		if err := s.transitionToUnbondedIfEligible(ctx, delegation); err != nil {
+		txType, err := types.StakingTxTypeFromString(delegation.TxType)
+		if err != nil {
+			log.Error().Err(err).Msgf("Invalid timelock type: %s", delegation.TxType)
+			return types.NewInternalServiceError(err)
+		}
+
+		if err := s.TransitionToUnbondedState(ctx, txType, delegation.StakingTxHashHex); err != nil {
 			log.Error().Err(err).
 				Msgf("Error transitioning delegation to unbonded: %v", delegation.ID)
 			return err
@@ -90,33 +96,22 @@ func (s *Service) processExpiredDelegations(ctx context.Context) *types.Error {
 	return nil
 }
 
-// transitionToUnbondedIfEligible attempts to transition a delegation to unbonded state
-// if it's in an eligible state.
-func (s *Service) transitionToUnbondedIfEligible(
-	ctx context.Context, delegation model.TimeLockDocument,
+// TransitionToUnbondedState transitions the staking delegation to unbonded state.
+// It returns true if the delegation is found and successfully transitioned to unbonded state.
+func (s *Service) TransitionToUnbondedState(
+	ctx context.Context, stakingTxType types.StakingTxType, stakingTxHashHex string,
 ) *types.Error {
-	// Check what type of the timelock is
-	timelockType, err := types.StakingTxTypeFromString(delegation.TxType)
-	if err != nil {
-		log.Error().Err(err).Msgf("Invalid timelock type: %s", delegation.TxType)
-		return types.NewInternalServiceError(err)
-	}
-
 	// Try to transition to unbonded, will skip if not eligible (NotFoundError)
-	err = s.db.TransitionToUnbondedState(
-		ctx, delegation.StakingTxHashHex, timelockType,
-	)
+	err := s.db.TransitionToUnbondedState(ctx, stakingTxHashHex, utils.QualifiedStatesToUnbonded(stakingTxType))
 	if err != nil {
+		// If the delegation is not found, we can ignore the error, it just means the delegation is not in a state that we can transition to unbonded
 		if db.IsNotFoundError(err) {
-			// Silently skip if not eligible
-			log.Debug().Msgf(
-				"Delegation not found or not in eligible state to transition: %v", delegation.ID,
-			)
+			errMsg := "delegation not found or no longer eligible to be unbonded after timelock expired"
+			log.Ctx(ctx).Warn().Str("stakingTxHashHex", stakingTxHashHex).Err(err).Msg(errMsg)
 			return nil
 		}
-		log.Error().Err(err).Msgf("Error transitioning to unbonded: %v", delegation.ID)
+		log.Ctx(ctx).Err(err).Str("stakingTxHash", stakingTxHashHex).Msg("Failed to transition to unbonded state")
 		return types.NewInternalServiceError(err)
 	}
-
 	return nil
 }

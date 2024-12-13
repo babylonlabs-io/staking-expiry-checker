@@ -23,15 +23,18 @@ type DbInterface interface {
 	TransitionToUnbondedState(
 		ctx context.Context,
 		stakingTxHashHex string,
-		unbondTxType types.StakingTxType,
+		eligiblePreviousStates []types.DelegationState,
 	) error
 	TransitionToUnbondingState(
 		ctx context.Context,
 		stakingTxHashHex string,
+		unbondingStartHeight, unbondingTimelock, unbondingOutputIndex uint64,
+		unbondingTxHex string, unbondingStartTimestamp int64,
 	) error
 	TransitionToWithdrawnState(
 		ctx context.Context,
 		stakingTxHashHex string,
+		eligiblePreviousStates []types.DelegationState,
 	) error
 	GetBTCDelegationByStakingTxHash(
 		ctx context.Context, stakingTxHash string,

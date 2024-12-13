@@ -116,3 +116,11 @@ func PushOrQuit[T any](c chan<- T, msg T, quit <-chan struct{}) {
 	case <-quit:
 	}
 }
+
+func SerializeBtcTransaction(tx *wire.MsgTx) (string, error) {
+	var txBuf bytes.Buffer
+	if err := tx.Serialize(&txBuf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(txBuf.Bytes()), nil
+}

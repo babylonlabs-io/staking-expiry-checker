@@ -193,17 +193,17 @@ func (_m *DbInterface) SaveTimeLockExpireCheck(ctx context.Context, stakingTxHas
 	return r0
 }
 
-// TransitionToUnbondedState provides a mock function with given fields: ctx, stakingTxHashHex, unbondTxType
-func (_m *DbInterface) TransitionToUnbondedState(ctx context.Context, stakingTxHashHex string, unbondTxType types.StakingTxType) error {
-	ret := _m.Called(ctx, stakingTxHashHex, unbondTxType)
+// TransitionToUnbondedState provides a mock function with given fields: ctx, stakingTxHashHex, eligiblePreviousStates
+func (_m *DbInterface) TransitionToUnbondedState(ctx context.Context, stakingTxHashHex string, eligiblePreviousStates []types.DelegationState) error {
+	ret := _m.Called(ctx, stakingTxHashHex, eligiblePreviousStates)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TransitionToUnbondedState")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, types.StakingTxType) error); ok {
-		r0 = rf(ctx, stakingTxHashHex, unbondTxType)
+	if rf, ok := ret.Get(0).(func(context.Context, string, []types.DelegationState) error); ok {
+		r0 = rf(ctx, stakingTxHashHex, eligiblePreviousStates)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -211,17 +211,17 @@ func (_m *DbInterface) TransitionToUnbondedState(ctx context.Context, stakingTxH
 	return r0
 }
 
-// TransitionToUnbondingState provides a mock function with given fields: ctx, stakingTxHashHex
-func (_m *DbInterface) TransitionToUnbondingState(ctx context.Context, stakingTxHashHex string) error {
-	ret := _m.Called(ctx, stakingTxHashHex)
+// TransitionToUnbondingState provides a mock function with given fields: ctx, stakingTxHashHex, unbondingStartHeight, unbondingTimelock, unbondingOutputIndex, unbondingTxHex, unbondingStartTimestamp
+func (_m *DbInterface) TransitionToUnbondingState(ctx context.Context, stakingTxHashHex string, unbondingStartHeight uint64, unbondingTimelock uint64, unbondingOutputIndex uint64, unbondingTxHex string, unbondingStartTimestamp int64) error {
+	ret := _m.Called(ctx, stakingTxHashHex, unbondingStartHeight, unbondingTimelock, unbondingOutputIndex, unbondingTxHex, unbondingStartTimestamp)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TransitionToUnbondingState")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, stakingTxHashHex)
+	if rf, ok := ret.Get(0).(func(context.Context, string, uint64, uint64, uint64, string, int64) error); ok {
+		r0 = rf(ctx, stakingTxHashHex, unbondingStartHeight, unbondingTimelock, unbondingOutputIndex, unbondingTxHex, unbondingStartTimestamp)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -229,17 +229,17 @@ func (_m *DbInterface) TransitionToUnbondingState(ctx context.Context, stakingTx
 	return r0
 }
 
-// TransitionToWithdrawnState provides a mock function with given fields: ctx, stakingTxHashHex
-func (_m *DbInterface) TransitionToWithdrawnState(ctx context.Context, stakingTxHashHex string) error {
-	ret := _m.Called(ctx, stakingTxHashHex)
+// TransitionToWithdrawnState provides a mock function with given fields: ctx, stakingTxHashHex, eligiblePreviousStates
+func (_m *DbInterface) TransitionToWithdrawnState(ctx context.Context, stakingTxHashHex string, eligiblePreviousStates []types.DelegationState) error {
+	ret := _m.Called(ctx, stakingTxHashHex, eligiblePreviousStates)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TransitionToWithdrawnState")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, stakingTxHashHex)
+	if rf, ok := ret.Get(0).(func(context.Context, string, []types.DelegationState) error); ok {
+		r0 = rf(ctx, stakingTxHashHex, eligiblePreviousStates)
 	} else {
 		r0 = ret.Error(0)
 	}

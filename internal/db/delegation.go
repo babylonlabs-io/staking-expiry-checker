@@ -15,28 +15,30 @@ import (
 func (db *Database) TransitionToUnbondedState(
 	ctx context.Context,
 	stakingTxHashHex string,
-	unbondTxType types.StakingTxType,
+	eligiblePreviousStates []types.DelegationState,
 ) error {
-	return db.transitionState(
-		ctx, stakingTxHashHex, types.Unbonded,
-		utils.QualifiedStatesToUnbonded(unbondTxType),
-	)
+	return db.transitionState(ctx, stakingTxHashHex, types.Unbonded.ToString(), eligiblePreviousStates, nil)
 }
 
+// Change the state to `unbonding` and save the unbondingTx data
+// Return not found error if the stakingTxHashHex is not found or the existing state is not eligible for unbonding
 func (db *Database) TransitionToUnbondingState(
-	ctx context.Context,
-	stakingTxHashHex string,
+	ctx context.Context, stakingTxHashHex string,
+	unbondingStartHeight, unbondingTimelock, unbondingOutputIndex uint64,
+	unbondingTxHex string, unbondingStartTimestamp int64,
 ) error {
-	return db.transitionState(
-		ctx, stakingTxHashHex, types.Unbonding,
-		utils.QualifiedStatesToUnbonding(),
-	)
-}
+	unbondingTxMap := make(map[string]interface{})
+	unbondingTxMap["unbonding_tx"] = model.TimelockTransaction{
+		TxHex:          unbondingTxHex,
+		OutputIndex:    unbondingOutputIndex,
+		StartTimestamp: unbondingStartTimestamp,
+		StartHeight:    unbondingStartHeight,
+		TimeLock:       unbondingTimelock,
+	}
 
-func (db *Database) TransitionToWithdrawnState(ctx context.Context, stakingTxHashHex string) error {
 	err := db.transitionState(
-		ctx, stakingTxHashHex, types.Withdrawn,
-		utils.QualifiedStatesToWithdraw(),
+		ctx, stakingTxHashHex, types.Unbonding.ToString(),
+		utils.QualifiedStatesToUnbonding(), unbondingTxMap,
 	)
 	if err != nil {
 		return err
@@ -44,25 +46,27 @@ func (db *Database) TransitionToWithdrawnState(ctx context.Context, stakingTxHas
 	return nil
 }
 
-// TransitionState updates the state of a staking transaction to a new state
-// It returns an NotFoundError if the staking transaction is not found or not
-// in the eligible state to transition
-func (db *Database) transitionState(
+func (db *Database) TransitionToWithdrawnState(
 	ctx context.Context,
 	stakingTxHashHex string,
-	newState types.DelegationState,
-	eligiblePreviousState []types.DelegationState,
+	eligiblePreviousStates []types.DelegationState,
 ) error {
-	client := db.client.Database(
-		db.dbName,
-	).Collection(model.DelegationsCollection)
-	filter := bson.M{
-		"_id": stakingTxHashHex,
-		"state": bson.M{
-			"$in": eligiblePreviousState,
-		},
+	return db.transitionState(ctx, stakingTxHashHex, types.Withdrawn.ToString(), eligiblePreviousStates, nil)
+}
+
+// TransitionState updates the state of a staking transaction to a new state
+// It returns an NotFoundError if the staking transaction is not found or not in the eligible state to transition
+func (db *Database) transitionState(
+	ctx context.Context, stakingTxHashHex, newState string,
+	eligiblePreviousState []types.DelegationState, additionalUpdates map[string]interface{},
+) error {
+	client := db.client.Database(db.dbName).Collection(model.DelegationsCollection)
+	filter := bson.M{"_id": stakingTxHashHex, "state": bson.M{"$in": eligiblePreviousState}}
+	update := bson.M{"$set": bson.M{"state": newState}}
+	for field, value := range additionalUpdates {
+		// Add additional fields to the $set operation
+		update["$set"].(bson.M)[field] = value
 	}
-	update := bson.M{"$set": bson.M{"state": newState.ToString()}}
 	_, err := client.UpdateOne(ctx, filter, update)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
