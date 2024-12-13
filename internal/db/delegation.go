@@ -9,6 +9,7 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (db *Database) TransitionToUnbondedState(
@@ -110,10 +111,11 @@ func (db *Database) GetBTCDelegationsByStates(
 	}
 
 	filter := bson.M{"state": bson.M{"$in": stateStrings}}
+	opts := options.Find().SetLimit(200) // to prevent large result sets
 
 	cursor, err := db.client.Database(db.dbName).
 		Collection(model.DelegationsCollection).
-		Find(ctx, filter)
+		Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
 	}
