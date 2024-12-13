@@ -9,14 +9,14 @@ import (
 )
 
 type Config struct {
-	Poller  PollerConfig  `mapstructure:"poller"`
+	Pollers PollersConfig `mapstructure:"pollers"`
 	Db      DbConfig      `mapstructure:"db"`
 	Btc     BtcConfig     `mapstructure:"btc"`
 	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
 func (cfg *Config) Validate() error {
-	if err := cfg.Poller.Validate(); err != nil {
+	if err := cfg.Pollers.Validate(); err != nil {
 		return err
 	}
 

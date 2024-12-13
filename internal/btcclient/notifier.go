@@ -1,0 +1,91 @@
+package btcclient
+
+import (
+	"fmt"
+	"net"
+
+	"github.com/btcsuite/btcwallet/chain"
+	"github.com/lightningnetwork/lnd/blockcache"
+	"github.com/lightningnetwork/lnd/chainntnfs"
+	"github.com/lightningnetwork/lnd/chainntnfs/bitcoindnotify"
+
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
+)
+
+type BTCNotifier struct {
+	*bitcoindnotify.BitcoindNotifier
+}
+
+func NewBTCNotifier(
+	cfg *config.BtcConfig,
+	hintCache HintCache,
+) (*BTCNotifier, error) {
+	params := utils.GetBTCParams(cfg.NetParams)
+
+	bitcoindCfg := &chain.BitcoindConfig{
+		ChainParams:        params,
+		Host:               cfg.Endpoint,
+		User:               cfg.RpcUser,
+		Pass:               cfg.RpcPass,
+		Dialer:             BuildDialer(cfg.Endpoint),
+		PrunedModeMaxPeers: cfg.PrunedNodeMaxPeers,
+		PollingConfig: &chain.PollingConfig{
+			BlockPollingInterval:    cfg.BlockPollingInterval,
+			TxPollingInterval:       cfg.TxPollingInterval,
+			TxPollingIntervalJitter: cfg.TxPollingIntervalJitter,
+		},
+	}
+
+	bitcoindConn, err := chain.NewBitcoindConn(bitcoindCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := bitcoindConn.Start(); err != nil {
+		return nil, fmt.Errorf("unable to connect to "+
+			"bitcoind: %v", err)
+	}
+
+	chainNotifier := bitcoindnotify.New(
+		bitcoindConn, params, hintCache,
+		hintCache, blockcache.NewBlockCache(cfg.BlockCacheSize),
+	)
+
+	return &BTCNotifier{BitcoindNotifier: chainNotifier}, nil
+}
+
+func BuildDialer(rpcHost string) func(string) (net.Conn, error) {
+	return func(addr string) (net.Conn, error) {
+		return net.Dial("tcp", rpcHost)
+	}
+}
+
+type HintCache interface {
+	chainntnfs.SpendHintCache
+	chainntnfs.ConfirmHintCache
+}
+
+type EmptyHintCache struct{}
+
+var _ HintCache = (*EmptyHintCache)(nil)
+
+func (c *EmptyHintCache) CommitSpendHint(height uint32, spendRequests ...chainntnfs.SpendRequest) error {
+	return nil
+}
+func (c *EmptyHintCache) QuerySpendHint(spendRequest chainntnfs.SpendRequest) (uint32, error) {
+	return 0, nil
+}
+func (c *EmptyHintCache) PurgeSpendHint(spendRequests ...chainntnfs.SpendRequest) error {
+	return nil
+}
+
+func (c *EmptyHintCache) CommitConfirmHint(height uint32, confRequests ...chainntnfs.ConfRequest) error {
+	return nil
+}
+func (c *EmptyHintCache) QueryConfirmHint(confRequest chainntnfs.ConfRequest) (uint32, error) {
+	return 0, nil
+}
+func (c *EmptyHintCache) PurgeConfirmHint(confRequests ...chainntnfs.ConfRequest) error {
+	return nil
+}

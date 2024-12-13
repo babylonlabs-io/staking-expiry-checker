@@ -4,6 +4,7 @@ set -x
 
 BINARY=${BINARY:-/bin/staking-expiry-checker}
 CONFIG=${CONFIG:-/home/staking-expiry-checker/config.yml}
+PARAMS=${PARAMS:-/home/staking-expiry-checker/global-params.json}
 
 if ! [ -f "${BINARY}" ]; then
     echo "The binary $(basename "${BINARY}") cannot be found."
@@ -15,4 +16,9 @@ if ! [ -f "${CONFIG}" ]; then
     exit 1
 fi
 
-$BINARY --config "$CONFIG" 2>&1
+if ! [ -f "${PARAMS}" ]; then
+	echo "The global parameters file $(basename "${PARAMS}") cannot be found. Please add the global parameters file to the shared folder. Use the PARAMS environment variable if the name of the global parameters file is not 'global-params.json'"
+	exit 1
+fi
+
+$BINARY --config "$CONFIG" --params "$PARAMS" 2>&1

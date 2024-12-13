@@ -43,3 +43,19 @@ func NewBtcClient(cfg *config.BtcConfig) (*BtcClient, error) {
 func (b *BtcClient) GetBlockCount() (int64, error) {
 	return metrics.RecordBtcClientMetrics[int64](b.client.GetBlockCount)
 }
+
+func (b *BtcClient) GetBlockTimestamp(height uint64) (int64, error) {
+	return metrics.RecordBtcClientMetrics[int64](func() (int64, error) {
+		hash, err := b.client.GetBlockHash(int64(height))
+		if err != nil {
+			return 0, err
+		}
+
+		header, err := b.client.GetBlockHeader(hash)
+		if err != nil {
+			return 0, err
+		}
+
+		return header.Timestamp.Unix(), nil
+	})
+}

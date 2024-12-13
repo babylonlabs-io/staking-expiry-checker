@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os/signal"
+	"syscall"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
@@ -11,9 +13,8 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/btcclient"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/poller"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/services"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 )
 
 func init() {
@@ -23,43 +24,52 @@ func init() {
 }
 
 func main() {
-	ctx := context.Background()
-
-	// setup cli commands and flags
+	// Setup CLI commands and flags
 	if err := cli.Setup(); err != nil {
 		log.Fatal().Err(err).Msg("error while setting up cli")
 	}
 
-	// load config
+	// Load config
 	cfgPath := cli.GetConfigPath()
 	cfg, err := config.New(cfgPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg(fmt.Sprintf("error while loading config file: %s", cfgPath))
 	}
 
-	// initialize metrics with the metrics port from config
-	metricsPort := cfg.Metrics.GetMetricsPort()
-	metrics.Init(metricsPort)
+	paramsPath := cli.GetGlobalParamsPath()
+	params, err := types.NewGlobalParams(paramsPath)
+	if err != nil {
+		log.Fatal().Err(err).Msg(fmt.Sprintf("error while loading global params file: %s", paramsPath))
+	}
 
-	// create new db client
+	// Create context with signal handling
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	// Create DB client
 	dbClient, err := db.New(ctx, cfg.Db)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating db client")
 	}
 
+	// Create BTC client
 	btcClient, err := btcclient.NewBtcClient(&cfg.Btc)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating btc client")
 	}
 
-	delegationService := services.NewService(dbClient, btcClient)
+	// Create BTC notifier
+	btcNotifier, err := btcclient.NewBTCNotifier(
+		&cfg.Btc,
+		&btcclient.EmptyHintCache{},
+	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("error while creating delegation service")
+		log.Fatal().Err(err).Msg("error while creating btc notifier")
 	}
 
-	p, err := poller.NewPoller(cfg.Poller, delegationService)
-	if err != nil {
-		log.Fatal().Err(err).Msg("error while creating poller")
+	// Create service
+	service := services.NewService(cfg, params, dbClient, btcNotifier, btcClient)
+	if err := service.RunUntilShutdown(ctx); err != nil {
+		log.Fatal().Err(err).Msg("failed to start service")
 	}
-	p.Start(ctx)
 }

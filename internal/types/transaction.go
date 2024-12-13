@@ -2,25 +2,24 @@ package types
 
 import "fmt"
 
-type TransactionType string
+type StakingTxType string
 
 const (
-	// Refer to natural timelock expired staking transaction
-	TransactionTypeActive TransactionType = "active"
-	// Refer to early unbonding of staking transaction
-	TransactionTypeUnbonding TransactionType = "unbonding"
+	ActiveTxType    StakingTxType = "active"
+	UnbondingTxType StakingTxType = "unbonding"
 )
 
-func (t TransactionType) ToString() string {
-	return string(t)
+func (s StakingTxType) ToString() string {
+	return string(s)
 }
 
-func FromString(s string) (TransactionType, error) {
+func StakingTxTypeFromString(s string) (StakingTxType, error) {
 	switch s {
-	case string(TransactionTypeActive):
-		return TransactionTypeActive, nil
-	case string(TransactionTypeUnbonding):
-		return TransactionTypeUnbonding, nil
+	case ActiveTxType.ToString():
+		return ActiveTxType, nil
+	case UnbondingTxType.ToString():
+		return UnbondingTxType, nil
+	default:
+		return "", fmt.Errorf("unknown staking tx type: %s", s)
 	}
-	return "", fmt.Errorf("invalid transaction type: %s", s)
 }

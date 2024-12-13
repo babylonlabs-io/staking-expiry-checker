@@ -28,10 +28,14 @@ func (O Outcome) String() string {
 }
 
 var (
-	once                       sync.Once
-	metricsRouter              *chi.Mux
-	pollDurationHistogram      *prometheus.HistogramVec
-	btcClientDurationHistogram *prometheus.HistogramVec
+	once                                         sync.Once
+	metricsRouter                                *chi.Mux
+	pollDurationHistogram                        *prometheus.HistogramVec
+	btcClientDurationHistogram                   *prometheus.HistogramVec
+	invalidTransactionsCounter                   *prometheus.CounterVec
+	failedVerifyingUnbondingTxsCounter           prometheus.Counter
+	failedVerifyingStakingWithdrawalTxsCounter   prometheus.Counter
+	failedVerifyingUnbondingWithdrawalTxsCounter prometheus.Counter
 )
 
 // Init initializes the metrics package.
@@ -88,9 +92,44 @@ func registerMetrics() {
 		[]string{"function", "status"},
 	)
 
+	invalidTransactionsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "invalid_txs_counter",
+			Help: "Total number of invalid transactions",
+		},
+		[]string{
+			"tx_type",
+		},
+	)
+
+	failedVerifyingUnbondingTxsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "failed_verifying_unbonding_txs_counter",
+			Help: "Total number of failed verifying unbonding txs",
+		},
+	)
+
+	failedVerifyingStakingWithdrawalTxsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "failed_verifying_staking_withdrawal_txs_counter",
+			Help: "Total number of failed verifying staking withdrawal txs",
+		},
+	)
+
+	failedVerifyingUnbondingWithdrawalTxsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "failed_verifying_unbonding_withdrawal_txs_counter",
+			Help: "Total number of failed verifying unbonding withdrawal txs",
+		},
+	)
+
 	prometheus.MustRegister(
 		pollDurationHistogram,
 		btcClientDurationHistogram,
+		invalidTransactionsCounter,
+		failedVerifyingUnbondingTxsCounter,
+		failedVerifyingStakingWithdrawalTxsCounter,
+		failedVerifyingUnbondingWithdrawalTxsCounter,
 	)
 }
 
@@ -115,4 +154,28 @@ func RecordBtcClientMetrics[T any](clientRequest func() (T, error)) (T, error) {
 	btcClientDurationHistogram.WithLabelValues(functionName, status.String()).Observe(duration)
 
 	return result, err
+}
+
+func IncrementInvalidStakingWithdrawalTxCounter() {
+	invalidTransactionsCounter.WithLabelValues("withdraw_staking_transactions").Inc()
+}
+
+func IncrementInvalidUnbondingWithdrawalTxCounter() {
+	invalidTransactionsCounter.WithLabelValues("withdraw_unbonding_transactions").Inc()
+}
+
+func IncrementInvalidUnbondingTxCounter() {
+	invalidTransactionsCounter.WithLabelValues("unbonding_transactions").Inc()
+}
+
+func IncrementFailedVerifyingUnbondingTxCounter() {
+	failedVerifyingUnbondingTxsCounter.Inc()
+}
+
+func IncrementFailedVerifyingStakingWithdrawalTxCounter() {
+	failedVerifyingStakingWithdrawalTxsCounter.Inc()
+}
+
+func IncrementFailedVerifyingUnbondingWithdrawalTxCounter() {
+	failedVerifyingUnbondingWithdrawalTxsCounter.Inc()
 }

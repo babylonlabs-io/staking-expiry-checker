@@ -1,43 +1,20 @@
 package model
 
-import "fmt"
+import "github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 
-// We don't care about other fields in the document
+type TimelockTransaction struct {
+	TxHex          string `bson:"tx_hex"`
+	OutputIndex    uint64 `bson:"output_index"`
+	StartTimestamp int64  `bson:"start_timestamp"`
+	StartHeight    uint64 `bson:"start_height"`
+	TimeLock       uint64 `bson:"timelock"`
+}
+
 type DelegationDocument struct {
-	StakingTxHashHex string          `bson:"_id"` // Primary key
-	State            DelegationState `bson:"state"`
-}
-
-type DelegationState string
-
-const (
-	Active             DelegationState = "active"
-	UnbondingRequested DelegationState = "unbonding_requested"
-	Unbonding          DelegationState = "unbonding"
-	Unbonded           DelegationState = "unbonded"
-	Withdrawn          DelegationState = "withdrawn"
-	Transitioned       DelegationState = "transitioned"
-)
-
-func (s DelegationState) ToString() string {
-	return string(s)
-}
-
-func FromStringToDelegationState(s string) (DelegationState, error) {
-	switch s {
-	case "active":
-		return Active, nil
-	case "unbonding_requested":
-		return UnbondingRequested, nil
-	case "unbonding":
-		return Unbonding, nil
-	case "unbonded":
-		return Unbonded, nil
-	case "withdrawn":
-		return Withdrawn, nil
-	case "transitioned":
-		return Transitioned, nil
-	default:
-		return "", fmt.Errorf("invalid delegation state: %s", s)
-	}
+	StakingTxHashHex      string                `bson:"_id"` // Primary key
+	StakerPkHex           string                `bson:"staker_pk_hex"`
+	FinalityProviderPkHex string                `bson:"finality_provider_pk_hex"`
+	State                 types.DelegationState `bson:"state"`
+	StakingTx             *TimelockTransaction  `bson:"staking_tx"` // Always exist
+	UnbondingTx           *TimelockTransaction  `bson:"unbonding_tx,omitempty"`
 }

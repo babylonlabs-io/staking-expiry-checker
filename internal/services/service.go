@@ -1,18 +1,140 @@
 package services
 
 import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/btcclient"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
+	notifier "github.com/lightningnetwork/lnd/chainntnfs"
+	"github.com/rs/zerolog/log"
 )
 
 type Service struct {
+	wg   sync.WaitGroup
+	quit chan struct{}
+
+	cfg         *config.Config
+	btcNotifier notifier.ChainNotifier
+	params      *types.GlobalParams
+
+	// interfaces
 	db  db.DbInterface
 	btc btcclient.BtcInterface
+
+	// in memory stores
+	trackedSubs *TrackedSubscriptions
+
+	// channels
+	unbondingDelegationChan chan *types.UnbondingDelegationEvent
+	withdrawnDelegationChan chan *types.WithdrawnDelegationEvent
 }
 
-func NewService(db db.DbInterface, btc btcclient.BtcInterface) *Service {
+func NewService(
+	cfg *config.Config,
+	params *types.GlobalParams,
+	db db.DbInterface,
+	btcNotifier notifier.ChainNotifier,
+	btc btcclient.BtcInterface,
+) *Service {
 	return &Service{
-		db:  db,
-		btc: btc,
+		quit:                    make(chan struct{}),
+		cfg:                     cfg,
+		btcNotifier:             btcNotifier,
+		params:                  params,
+		db:                      db,
+		btc:                     btc,
+		trackedSubs:             NewTrackedSubscriptions(),
+		unbondingDelegationChan: make(chan *types.UnbondingDelegationEvent, 100), // buffered
+		withdrawnDelegationChan: make(chan *types.WithdrawnDelegationEvent, 100), // buffered
+	}
+}
+
+func (s *Service) RunUntilShutdown(ctx context.Context) error {
+	// Initialize metrics
+	metricsPort := s.cfg.Metrics.GetMetricsPort()
+	metrics.Init(metricsPort)
+
+	// Start BTCNotifier
+	if err := s.btcNotifier.Start(); err != nil {
+		return fmt.Errorf("failed to start btc chain notifier: %w", err)
+	}
+	defer func() {
+		if err := s.btcNotifier.Stop(); err != nil {
+			log.Error().Err(err).Msg("failed to stop btc chain notifier")
+		}
+	}()
+
+	// Start pollers
+	go s.startExpiryPoller(ctx)
+	go s.startBTCSubscriberPoller(ctx)
+
+	// Start service handlers
+	go s.handleUnbondingDelegation(ctx)
+	go s.handleWithdrawnDelegation(ctx)
+
+	// Wait for context cancellation
+	<-ctx.Done()
+	log.Info().Msg("Shutdown signal received, stopping service...")
+
+	// Signal all components to stop
+	close(s.quit)
+
+	// Wait for all goroutines to finish
+	s.wg.Wait()
+
+	return nil
+}
+
+func (s *Service) startExpiryPoller(ctx context.Context) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(s.cfg.Pollers.ExpiryChecker.Interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.ExpiryChecker.Timeout)
+			if err := s.processExpiredDelegations(pollingCtx); err != nil {
+				log.Error().Err(err).Msg("Error processing expired delegations")
+			}
+			cancel()
+		case <-ctx.Done():
+			log.Info().Msg("Expiry poller stopped due to context cancellation")
+			return
+		case <-s.quit:
+			return
+		}
+	}
+}
+
+func (s *Service) startBTCSubscriberPoller(ctx context.Context) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(s.cfg.Pollers.BtcSubscriber.Interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.BtcSubscriber.Timeout)
+			if err := s.processBTCSubscriber(pollingCtx); err != nil {
+				log.Error().Err(err).Msg("Error processing BTC subscriptions")
+			}
+			cancel()
+		case <-ctx.Done():
+			log.Info().Msg("BTC subscriber poller stopped due to context cancellation")
+			return
+		case <-s.quit:
+			return
+		}
 	}
 }
