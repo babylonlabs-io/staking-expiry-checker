@@ -12,11 +12,11 @@ db:
   address: "mongodb://localhost:27017"
   db-name: staking-api-service
 btc:
-  endpoint: localhost:18332
-  disable-tls: false
-  net-params: testnet
-  rpc-user: rpcuser
-  rpc-pass: rpcpass
+  endpoint: localhost:38332  # signet endpoint
+  disable-tls: true          # should be disabled for local testing
+  net-params: signet         # signet network params
+  rpc-user: rpcuser          # rpc user
+  rpc-pass: rpcpass          # rpc pass
 metrics:
   host: 0.0.0.0
   port: 2112
