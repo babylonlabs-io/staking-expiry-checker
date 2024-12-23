@@ -140,9 +140,11 @@ func (s *Service) handleSpendingStakingTransaction(
 		return fmt.Errorf("failed to validate unbonding tx: %w", err)
 	}
 	if isUnbonding {
+		unbondingTxHashHex := spendingTx.TxHash().String()
+		unbondingStartHeight := uint64(spendingHeight)
 		log.Debug().
 			Str("staking_tx", delegation.StakingTxHashHex).
-			Str("unbonding_tx", spendingTx.TxHash().String()).
+			Str("unbonding_tx", unbondingTxHashHex).
 			Msg("staking tx has been spent through unbonding path")
 
 		unbondingTxHex, err := utils.SerializeBtcTransaction(spendingTx)
@@ -157,18 +159,18 @@ func (s *Service) handleSpendingStakingTransaction(
 
 		unbondingEvent := types.NewUnbondingDelegationEvent(
 			delegation.StakingTxHashHex,
-			uint64(spendingHeight),
+			unbondingStartHeight,
 			unbondingTxTimestamp,
 			paramsVersion.UnbondingTime,
 			// valid unbonding tx always has one output
 			uint64(0),
 			unbondingTxHex,
-			spendingTx.TxHash().String(),
+			unbondingTxHashHex,
 		)
 		utils.PushOrQuit(s.unbondingDelegationChan, unbondingEvent, s.quit)
 
 		// Register unbonding spend notification
-		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, uint64(spendingHeight))
+		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, unbondingStartHeight)
 	}
 
 	// Try to validate as withdrawal transaction
