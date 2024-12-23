@@ -274,7 +274,10 @@ func (s *Service) IsValidUnbondingTx(
 		covPks[i] = covPk.MustToBTCPK()
 	}
 
-	btcParams := utils.GetBTCParams(s.cfg.Btc.NetParams)
+	btcParams, err := utils.GetBTCParams(s.cfg.Btc.NetParams)
+	if err != nil {
+		return false, fmt.Errorf("invalid BTC network params: %w", err)
+	}
 
 	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingTx.OutputIndex].Value)
 
@@ -374,7 +377,10 @@ func (s *Service) validateWithdrawalTxFromStaking(
 		covPks[i] = covPk.MustToBTCPK()
 	}
 
-	btcParams := utils.GetBTCParams(s.cfg.Btc.NetParams)
+	btcParams, err := utils.GetBTCParams(s.cfg.Btc.NetParams)
+	if err != nil {
+		return fmt.Errorf("invalid BTC network params: %w", err)
+	}
 
 	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTx.TxHex)
 	if err != nil {
@@ -443,7 +449,10 @@ func (s *Service) validateWithdrawalTxFromUnbonding(
 		covPks[i] = covPk.MustToBTCPK()
 	}
 
-	btcParams := utils.GetBTCParams(s.cfg.Btc.NetParams)
+	btcParams, err := utils.GetBTCParams(s.cfg.Btc.NetParams)
+	if err != nil {
+		return fmt.Errorf("invalid BTC network params: %w", err)
+	}
 
 	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTx.TxHex)
 	if err != nil {

@@ -1,31 +1,21 @@
 package btcclient
 
 import (
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/rpcclient"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 )
 
 type BtcClient struct {
 	client *rpcclient.Client
-
-	params *chaincfg.Params
-	cfg    *config.BtcConfig
+	cfg    *config.BTCConfig
 }
 
-func NewBtcClient(cfg *config.BtcConfig) (*BtcClient, error) {
-	params := utils.GetBTCParams(cfg.NetParams)
-
-	connCfg := &rpcclient.ConnConfig{
-		Host:         cfg.Endpoint,
-		HTTPPostMode: true,
-		User:         cfg.RpcUser,
-		Pass:         cfg.RpcPass,
-		DisableTLS:   cfg.DisableTLS,
-		Params:       params.Name,
+func NewBtcClient(cfg *config.BTCConfig) (*BtcClient, error) {
+	connCfg, err := cfg.ToConnConfig()
+	if err != nil {
+		return nil, err
 	}
 
 	rpcClient, err := rpcclient.New(connCfg, nil)
@@ -35,7 +25,6 @@ func NewBtcClient(cfg *config.BtcConfig) (*BtcClient, error) {
 
 	return &BtcClient{
 		client: rpcClient,
-		params: params,
 		cfg:    cfg,
 	}, nil
 }

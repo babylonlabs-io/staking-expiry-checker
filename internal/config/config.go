@@ -11,7 +11,7 @@ import (
 type Config struct {
 	Pollers PollersConfig `mapstructure:"pollers"`
 	Db      DbConfig      `mapstructure:"db"`
-	Btc     BtcConfig     `mapstructure:"btc"`
+	Btc     BTCConfig     `mapstructure:"btc"`
 	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
