@@ -18,17 +18,20 @@ type BTCNotifier struct {
 }
 
 func NewBTCNotifier(
-	cfg *config.BtcConfig,
+	cfg *config.BTCConfig,
 	hintCache HintCache,
 ) (*BTCNotifier, error) {
-	params := utils.GetBTCParams(cfg.NetParams)
-
+	params, err := utils.GetBTCParams(cfg.NetParams)
+	if err != nil {
+		return nil, fmt.Errorf("invalid BTC network params: %w", err)
+	}
+	
 	bitcoindCfg := &chain.BitcoindConfig{
 		ChainParams:        params,
-		Host:               cfg.Endpoint,
-		User:               cfg.RpcUser,
-		Pass:               cfg.RpcPass,
-		Dialer:             BuildDialer(cfg.Endpoint),
+		Host:               cfg.RPCHost,
+		User:               cfg.RPCUser,
+		Pass:               cfg.RPCPass,
+		Dialer:             BuildDialer(cfg.RPCHost),
 		PrunedModeMaxPeers: cfg.PrunedNodeMaxPeers,
 		PollingConfig: &chain.PollingConfig{
 			BlockPollingInterval:    cfg.BlockPollingInterval,
