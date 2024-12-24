@@ -62,7 +62,7 @@ func (s *Service) watchForSpendStakingTx(
 
 func (s *Service) watchForSpendUnbondingTx(
 	spendEvent *notifier.SpendEvent,
-	delegation *model.DelegationDocument,
+	stakingTxHashHex string,
 ) {
 	defer s.wg.Done()
 	quitCtx, cancel := s.quitContext()
@@ -72,19 +72,17 @@ func (s *Service) watchForSpendUnbondingTx(
 	select {
 	case spendDetail := <-spendEvent.Spend:
 		log.Debug().
-			Str("staking_tx", delegation.StakingTxHashHex).
-			Str("unbonding_tx", spendDetail.SpendingTx.TxHash().String()).
+			Str("staking_tx", stakingTxHashHex).
 			Msg("unbonding tx has been spent")
 		if err := s.handleSpendingUnbondingTransaction(
 			quitCtx,
 			spendDetail.SpendingTx,
 			spendDetail.SpenderInputIndex,
-			delegation,
+			stakingTxHashHex,
 		); err != nil {
 			log.Error().
 				Err(err).
-				Str("staking_tx", delegation.StakingTxHashHex).
-				Str("unbonding_tx", spendDetail.SpendingTx.TxHash().String()).
+				Str("staking_tx", stakingTxHashHex).
 				Msg("failed to handle spending unbonding transaction")
 			return
 		}
@@ -118,7 +116,15 @@ func (s *Service) handleSpendingStakingTransaction(
 	}
 
 	// First try to validate as unbonding tx
-	isUnbonding, err := s.IsValidUnbondingTx(spendingTx, delegation, paramsVersion)
+	isUnbonding, err := s.IsValidUnbondingTx(
+		spendingTx,
+		delegation.StakingTx.TxHex,
+		delegation.StakerPkHex,
+		delegation.FinalityProviderPkHex,
+		uint32(delegation.StakingTx.OutputIndex),
+		uint16(delegation.StakingTx.TimeLock),
+		paramsVersion,
+	)
 	if err != nil {
 		if errors.Is(err, types.ErrInvalidUnbondingTx) {
 			metrics.IncrementInvalidUnbondingTxCounter()
@@ -134,9 +140,11 @@ func (s *Service) handleSpendingStakingTransaction(
 		return fmt.Errorf("failed to validate unbonding tx: %w", err)
 	}
 	if isUnbonding {
+		unbondingTxHashHex := spendingTx.TxHash().String()
+		unbondingStartHeight := uint64(spendingHeight)
 		log.Debug().
 			Str("staking_tx", delegation.StakingTxHashHex).
-			Str("unbonding_tx", spendingTx.TxHash().String()).
+			Str("unbonding_tx", unbondingTxHashHex).
 			Msg("staking tx has been spent through unbonding path")
 
 		unbondingTxHex, err := utils.SerializeBtcTransaction(spendingTx)
@@ -151,18 +159,18 @@ func (s *Service) handleSpendingStakingTransaction(
 
 		unbondingEvent := types.NewUnbondingDelegationEvent(
 			delegation.StakingTxHashHex,
-			uint64(spendingHeight),
+			unbondingStartHeight,
 			unbondingTxTimestamp,
 			paramsVersion.UnbondingTime,
 			// valid unbonding tx always has one output
 			uint64(0),
 			unbondingTxHex,
-			spendingTx.TxHash().String(),
+			unbondingTxHashHex,
 		)
 		utils.PushOrQuit(s.unbondingDelegationChan, unbondingEvent, s.quit)
 
 		// Register unbonding spend notification
-		return s.registerUnbondingSpendNotification(delegation)
+		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, unbondingStartHeight)
 	}
 
 	// Try to validate as withdrawal transaction
@@ -192,8 +200,13 @@ func (s *Service) handleSpendingUnbondingTransaction(
 	ctx context.Context,
 	spendingTx *wire.MsgTx,
 	spendingInputIdx uint32,
-	delegation *model.DelegationDocument,
+	stakingTxHashHex string,
 ) error {
+	delegation, err := s.db.GetBTCDelegationByStakingTxHash(ctx, stakingTxHashHex)
+	if err != nil {
+		return fmt.Errorf("failed to get BTC delegation by staking tx hash: %w", err)
+	}
+
 	paramsVersion := s.GetVersionedGlobalParamsByHeight(delegation.StakingTx.StartHeight)
 	if paramsVersion == nil {
 		log.Ctx(ctx).Error().Msg("failed to get global params")
@@ -232,10 +245,14 @@ func (s *Service) handleSpendingUnbondingTransaction(
 // but is invalid
 func (s *Service) IsValidUnbondingTx(
 	tx *wire.MsgTx,
-	delegation *model.DelegationDocument,
+	stakingTxHex,
+	stakerPkHex,
+	finalityProviderPkHex string,
+	stakingOutputIdx uint32,
+	stakingTimeLock uint16,
 	params *types.VersionedGlobalParams,
 ) (bool, error) {
-	stakingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.StakingTx.TxHex)
+	stakingTx, err := utils.DeserializeBtcTransactionFromHex(stakingTxHex)
 	if err != nil {
 		return false, fmt.Errorf("failed to deserialize staking tx: %w", err)
 	}
@@ -250,16 +267,16 @@ func (s *Service) IsValidUnbondingTx(
 	if !tx.TxIn[0].PreviousOutPoint.Hash.IsEqual(&stakingTxHash) {
 		return false, nil
 	}
-	if tx.TxIn[0].PreviousOutPoint.Index != uint32(delegation.StakingTx.OutputIndex) {
+	if tx.TxIn[0].PreviousOutPoint.Index != stakingOutputIdx {
 		return false, nil
 	}
 
-	stakerPk, err := bbn.NewBIP340PubKeyFromHex(delegation.StakerPkHex)
+	stakerPk, err := bbn.NewBIP340PubKeyFromHex(stakerPkHex)
 	if err != nil {
 		return false, fmt.Errorf("failed to convert staker btc pkh to a public key: %w", err)
 	}
 
-	fpPKBIP340, err := bbn.NewBIP340PubKeyFromHex(delegation.FinalityProviderPkHex)
+	fpPKBIP340, err := bbn.NewBIP340PubKeyFromHex(finalityProviderPkHex)
 	if err != nil {
 		return false, fmt.Errorf("failed to convert finality provider pk hex to a public key: %w", err)
 	}
@@ -279,7 +296,7 @@ func (s *Service) IsValidUnbondingTx(
 		return false, fmt.Errorf("invalid BTC network params: %w", err)
 	}
 
-	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingTx.OutputIndex].Value)
+	stakingValue := btcutil.Amount(stakingTx.TxOut[stakingOutputIdx].Value)
 
 	// 3. re-build the unbonding path script and check whether the script from
 	// the witness matches
@@ -288,7 +305,7 @@ func (s *Service) IsValidUnbondingTx(
 		[]*btcec.PublicKey{fpPK},
 		covPks,
 		uint32(params.CovenantQuorum),
-		uint16(delegation.StakingTx.TimeLock),
+		uint16(stakingTimeLock),
 		stakingValue,
 		btcParams,
 	)
@@ -333,7 +350,7 @@ func (s *Service) IsValidUnbondingTx(
 		[]*btcec.PublicKey{fpPK},
 		covPks,
 		uint32(params.CovenantQuorum),
-		uint16(delegation.UnbondingTx.TimeLock),
+		uint16(params.UnbondingTime),
 		expectedUnbondingOutputValue,
 		btcParams,
 	)
@@ -548,9 +565,11 @@ func (s *Service) registerStakingSpendNotification(
 }
 
 func (s *Service) registerUnbondingSpendNotification(
-	delegation *model.DelegationDocument,
+	stakingTxHashHex string,
+	unbondingTxHex string,
+	unbondingStartHeight uint64,
 ) *types.Error {
-	unbondingTxBytes, parseErr := hex.DecodeString(delegation.UnbondingTx.TxHex)
+	unbondingTxBytes, parseErr := hex.DecodeString(unbondingTxHex)
 	if parseErr != nil {
 		return types.NewError(
 			http.StatusInternalServerError,
@@ -569,7 +588,7 @@ func (s *Service) registerUnbondingSpendNotification(
 	}
 
 	log.Debug().
-		Str("staking_tx", delegation.StakingTxHashHex).
+		Str("staking_tx", stakingTxHashHex).
 		Str("unbonding_tx", unbondingTx.TxHash().String()).
 		Msg("registering early unbonding spend notification")
 
@@ -581,18 +600,18 @@ func (s *Service) registerUnbondingSpendNotification(
 	spendEv, btcErr := s.btcNotifier.RegisterSpendNtfn(
 		&unbondingOutpoint,
 		unbondingTx.TxOut[0].PkScript,
-		uint32(delegation.UnbondingTx.StartHeight),
+		uint32(unbondingStartHeight),
 	)
 	if btcErr != nil {
 		return types.NewError(
 			http.StatusInternalServerError,
 			types.InternalServiceError,
-			fmt.Errorf("failed to register spend ntfn for unbonding tx %s: %w", delegation.StakingTxHashHex, btcErr),
+			fmt.Errorf("failed to register spend ntfn for unbonding tx %s: %w", stakingTxHashHex, btcErr),
 		)
 	}
 
 	s.wg.Add(1)
-	go s.watchForSpendUnbondingTx(spendEv, delegation)
+	go s.watchForSpendUnbondingTx(spendEv, stakingTxHashHex)
 
 	return nil
 }
