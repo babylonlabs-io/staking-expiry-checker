@@ -28,9 +28,6 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 	// Process each delegation
 	for _, delegation := range delegations {
 		if s.trackedSubs.IsSubscribed(delegation.StakingTxHashHex) {
-			log.Debug().
-				Str("stakingTxHash", delegation.StakingTxHashHex).
-				Msg("Delegation already subscribed, skipping")
 			continue
 		}
 

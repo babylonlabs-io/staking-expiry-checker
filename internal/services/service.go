@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/babylonlabs-io/networks/parameters/parser"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/btcclient"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
@@ -19,9 +20,9 @@ type Service struct {
 	wg   sync.WaitGroup
 	quit chan struct{}
 
-	cfg         *config.Config
-	btcNotifier notifier.ChainNotifier
-	params      *types.GlobalParams
+	cfg            *config.Config
+	btcNotifier    notifier.ChainNotifier
+	paramsVersions *parser.ParsedGlobalParams
 
 	// interfaces
 	db  db.DbInterface
@@ -37,7 +38,7 @@ type Service struct {
 
 func NewService(
 	cfg *config.Config,
-	params *types.GlobalParams,
+	paramsVersions *parser.ParsedGlobalParams,
 	db db.DbInterface,
 	btcNotifier notifier.ChainNotifier,
 	btc btcclient.BtcInterface,
@@ -46,7 +47,7 @@ func NewService(
 		quit:                    make(chan struct{}),
 		cfg:                     cfg,
 		btcNotifier:             btcNotifier,
-		params:                  params,
+		paramsVersions:          paramsVersions,
 		db:                      db,
 		btc:                     btc,
 		trackedSubs:             NewTrackedSubscriptions(),
@@ -137,4 +138,13 @@ func (s *Service) startBTCSubscriberPoller(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (s *Service) getVersionedParams(height uint64) (*parser.ParsedVersionedGlobalParams, error) {
+	params := s.paramsVersions.GetVersionedGlobalParamsByHeight(height)
+	if params == nil {
+		return nil, fmt.Errorf("the params for height %d does not exist", height)
+	}
+
+	return params, nil
 }
