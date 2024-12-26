@@ -4,7 +4,6 @@ on:
   push:
     branches:
     - 'main'
-    - 'gusin13/fix-params-bip340'
     tags:
     - '*'
 
