@@ -14,7 +14,7 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/services"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
+	"github.com/babylonlabs-io/staking-expiry-checker/params"
 )
 
 func init() {
@@ -36,11 +36,11 @@ func main() {
 		log.Fatal().Err(err).Msg(fmt.Sprintf("error while loading config file: %s", cfgPath))
 	}
 
-	paramsPath := cli.GetGlobalParamsPath()
-	params, err := types.NewGlobalParams(paramsPath)
+	paramsRetriever, err := params.NewGlobalParamsRetriever(cli.GetGlobalParamsPath())
 	if err != nil {
-		log.Fatal().Err(err).Msg(fmt.Sprintf("error while loading global params file: %s", paramsPath))
+		log.Fatal().Err(err).Msg("failed to initialize params retriever")
 	}
+	versionedParams := paramsRetriever.VersionedParams()
 
 	// Create context with signal handling
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -68,7 +68,7 @@ func main() {
 	}
 
 	// Create service
-	service := services.NewService(cfg, params, dbClient, btcNotifier, btcClient)
+	service := services.NewService(cfg, versionedParams, dbClient, btcNotifier, btcClient)
 	if err := service.RunUntilShutdown(ctx); err != nil {
 		log.Fatal().Err(err).Msg("failed to start service")
 	}
