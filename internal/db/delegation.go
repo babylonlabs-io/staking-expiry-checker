@@ -132,6 +132,9 @@ func (db *Database) GetBTCDelegationsByStatesInBatches(
 		filter["_id"] = bson.M{"$gt": lastProcessedID}
 	}
 
+	// Mongo internally always apply sorting before applying limit
+	// this is necessary for pagination to work correctly
+	// Order of options builder does not matter
 	opts := options.Find().
 		SetLimit(batchSize).
 		SetSort(bson.M{"_id": 1})
