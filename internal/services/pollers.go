@@ -13,7 +13,7 @@ import (
 func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 	var (
 		lastProcessedID string
-		batchSize       = s.cfg.Pollers.ExpiryChecker.BatchSize
+		batchSize       = s.cfg.Pollers.BtcSubscriber.BatchSize
 		totalFetched    = 0
 		batchCount      = 0
 	)
