@@ -14,11 +14,13 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 	var (
 		lastProcessedID string
 		batchSize       = s.cfg.Pollers.ExpiryChecker.BatchSize
-		totalProcessed  = 0
+		totalFetched    = 0
+		batchCount      = 0
 	)
 
 	startTime := time.Now()
 	for {
+		batchCount++
 		result, err := s.db.GetBTCDelegationsByStatesInBatches(
 			ctx,
 			[]types.DelegationState{
@@ -36,6 +38,8 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 		if len(result.Delegations) == 0 {
 			break
 		}
+
+		totalFetched += len(result.Delegations)
 
 		// Process batch
 		for _, delegation := range result.Delegations {
@@ -57,8 +61,6 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 			}
 
 			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
-			totalProcessed++
-
 			log.Debug().
 				Str("stakingTxHash", delegation.StakingTxHashHex).
 				Msg("Successfully registered BTC notification")
@@ -73,7 +75,9 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 	}
 
 	log.Info().
-		Int("total_processed", totalProcessed).
+		Int("total_delegations_fetched", totalFetched).
+		Int("total_batches", batchCount).
+		Int("batch_size", int(batchSize)).
 		Float64("duration_seconds", time.Since(startTime).Seconds()).
 		Msg("BTC subscription processing completed")
 
