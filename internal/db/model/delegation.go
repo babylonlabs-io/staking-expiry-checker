@@ -18,3 +18,18 @@ type DelegationDocument struct {
 	StakingTx             *TimelockTransaction  `bson:"staking_tx"` // Always exist
 	UnbondingTx           *TimelockTransaction  `bson:"unbonding_tx,omitempty"`
 }
+
+type DelegationScanPagination struct {
+	StakingTxHashHex string `json:"staking_tx_hash_hex"`
+}
+
+func BuildDelegationScanPaginationToken(d DelegationDocument) (string, error) {
+	page := &DelegationScanPagination{
+		StakingTxHashHex: d.StakingTxHashHex,
+	}
+	token, err := GetPaginationToken(page)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}

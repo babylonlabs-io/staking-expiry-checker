@@ -10,7 +10,7 @@ import (
 
 const (
 	MinBatchSize = 200
-	MaxBatchSize = 1000
+	MaxBatchSize = 2000
 )
 
 type PollerConfig struct {

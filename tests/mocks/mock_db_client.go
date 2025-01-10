@@ -38,9 +38,9 @@ func (_m *DbInterface) DeleteExpiredDelegation(ctx context.Context, id primitive
 	return r0
 }
 
-// FindExpiredDelegations provides a mock function with given fields: ctx, btcTipHeight
-func (_m *DbInterface) FindExpiredDelegations(ctx context.Context, btcTipHeight uint64) ([]model.TimeLockDocument, error) {
-	ret := _m.Called(ctx, btcTipHeight)
+// FindExpiredDelegations provides a mock function with given fields: ctx, btcTipHeight, limit
+func (_m *DbInterface) FindExpiredDelegations(ctx context.Context, btcTipHeight uint64, limit int64) ([]model.TimeLockDocument, error) {
+	ret := _m.Called(ctx, btcTipHeight, limit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindExpiredDelegations")
@@ -48,19 +48,19 @@ func (_m *DbInterface) FindExpiredDelegations(ctx context.Context, btcTipHeight 
 
 	var r0 []model.TimeLockDocument
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) ([]model.TimeLockDocument, error)); ok {
-		return rf(ctx, btcTipHeight)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, int64) ([]model.TimeLockDocument, error)); ok {
+		return rf(ctx, btcTipHeight, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) []model.TimeLockDocument); ok {
-		r0 = rf(ctx, btcTipHeight)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, int64) []model.TimeLockDocument); ok {
+		r0 = rf(ctx, btcTipHeight, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]model.TimeLockDocument)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uint64) error); ok {
-		r1 = rf(ctx, btcTipHeight)
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, int64) error); ok {
+		r1 = rf(ctx, btcTipHeight, limit)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -128,29 +128,29 @@ func (_m *DbInterface) GetBTCDelegationState(ctx context.Context, stakingTxHash 
 	return r0, r1
 }
 
-// GetBTCDelegationsByStatesInBatches provides a mock function with given fields: ctx, states, lastProcessedStakingTxHash, batchSize
-func (_m *DbInterface) GetBTCDelegationsByStatesInBatches(ctx context.Context, states []types.DelegationState, lastProcessedStakingTxHash string, batchSize int64) (*db.BatchResult, error) {
-	ret := _m.Called(ctx, states, lastProcessedStakingTxHash, batchSize)
+// GetBTCDelegationsByStates provides a mock function with given fields: ctx, states, paginationToken
+func (_m *DbInterface) GetBTCDelegationsByStates(ctx context.Context, states []types.DelegationState, paginationToken string) (*db.DbResultMap[model.DelegationDocument], error) {
+	ret := _m.Called(ctx, states, paginationToken)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetBTCDelegationsByStatesInBatches")
+		panic("no return value specified for GetBTCDelegationsByStates")
 	}
 
-	var r0 *db.BatchResult
+	var r0 *db.DbResultMap[model.DelegationDocument]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState, string, int64) (*db.BatchResult, error)); ok {
-		return rf(ctx, states, lastProcessedStakingTxHash, batchSize)
+	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState, string) (*db.DbResultMap[model.DelegationDocument], error)); ok {
+		return rf(ctx, states, paginationToken)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState, string, int64) *db.BatchResult); ok {
-		r0 = rf(ctx, states, lastProcessedStakingTxHash, batchSize)
+	if rf, ok := ret.Get(0).(func(context.Context, []types.DelegationState, string) *db.DbResultMap[model.DelegationDocument]); ok {
+		r0 = rf(ctx, states, paginationToken)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*db.BatchResult)
+			r0 = ret.Get(0).(*db.DbResultMap[model.DelegationDocument])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []types.DelegationState, string, int64) error); ok {
-		r1 = rf(ctx, states, lastProcessedStakingTxHash, batchSize)
+	if rf, ok := ret.Get(1).(func(context.Context, []types.DelegationState, string) error); ok {
+		r1 = rf(ctx, states, paginationToken)
 	} else {
 		r1 = ret.Error(1)
 	}

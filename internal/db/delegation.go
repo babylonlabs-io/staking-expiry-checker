@@ -104,64 +104,45 @@ func (db *Database) GetBTCDelegationByStakingTxHash(
 	return &delegationDoc, nil
 }
 
-type BatchResult struct {
-	Delegations     []*model.DelegationDocument
-	LastProcessedID string
-	IsLastBatch     bool
-}
-
-func (db *Database) GetBTCDelegationsByStatesInBatches(
+func (db *Database) GetBTCDelegationsByStates(
 	ctx context.Context,
 	states []types.DelegationState,
-	lastProcessedID string,
-	batchSize int64,
-) (*BatchResult, error) {
-	if batchSize <= 0 {
-		batchSize = 500 // Default batch size
-	}
-
+	paginationToken string,
+) (*DbResultMap[model.DelegationDocument], error) {
+	// Convert states to strings
 	stateStrings := make([]string, len(states))
 	for i, state := range states {
 		stateStrings[i] = state.ToString()
 	}
 
+	// Build filter
 	filter := bson.M{
 		"state": bson.M{"$in": stateStrings},
 	}
-	if lastProcessedID != "" {
-		filter["_id"] = bson.M{"$gt": lastProcessedID}
+
+	// Setup options
+	options := options.Find()
+	options.SetSort(bson.M{"_id": 1})
+
+	// Decode pagination token if it exists
+	if paginationToken != "" {
+		decodedToken, err := model.DecodePaginationToken[model.DelegationScanPagination](paginationToken)
+		if err != nil {
+			return nil, &InvalidPaginationTokenError{
+				Message: "Invalid pagination token",
+			}
+		}
+		filter["_id"] = bson.M{"$gt": decodedToken.StakingTxHashHex}
 	}
 
-	// Mongo internally always apply sorting before applying limit
-	// this is necessary for pagination to work correctly
-	// Order of options builder does not matter
-	opts := options.Find().
-		SetLimit(batchSize).
-		SetSort(bson.M{"_id": 1})
-
-	cursor, err := db.client.Database(db.dbName).
-		Collection(model.DelegationsCollection).
-		Find(ctx, filter, opts)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var delegations []*model.DelegationDocument
-	if err := cursor.All(ctx, &delegations); err != nil {
-		return nil, err
-	}
-
-	var lastProcessedStakingTxHashHex string
-	if len(delegations) > 0 {
-		lastProcessedStakingTxHashHex = delegations[len(delegations)-1].StakingTxHashHex
-	}
-
-	return &BatchResult{
-		Delegations:     delegations,
-		LastProcessedID: lastProcessedStakingTxHashHex,
-		IsLastBatch:     len(delegations) < int(batchSize),
-	}, nil
+	return findWithPagination(
+		ctx,
+		db.client.Database(db.dbName).Collection(model.DelegationsCollection),
+		filter,
+		options,
+		db.cfg.MaxPaginationLimit,
+		model.BuildDelegationScanPaginationToken,
+	)
 }
 
 func (db *Database) GetBTCDelegationState(

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"time"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
@@ -12,37 +11,27 @@ import (
 
 func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 	var (
-		lastProcessedID string
-		batchSize       = s.cfg.Pollers.BtcSubscriber.BatchSize
-		totalFetched    = 0
-		batchCount      = 0
+		pageToken      = ""
+		totalProcessed = 0
 	)
-
-	startTime := time.Now()
 	for {
-		batchCount++
-		result, err := s.db.GetBTCDelegationsByStatesInBatches(
+		result, err := s.db.GetBTCDelegationsByStates(
 			ctx,
 			[]types.DelegationState{
 				types.Unbonded,
 				types.UnbondingRequested,
 			},
-			lastProcessedID,
-			batchSize,
+			pageToken,
 		)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get delegations for BTC subscription")
 			return types.NewInternalServiceError(err)
 		}
 
-		if len(result.Delegations) == 0 {
-			break
-		}
-
-		totalFetched += len(result.Delegations)
+		totalProcessed += len(result.Data)
 
 		// Process batch
-		for _, delegation := range result.Delegations {
+		for _, delegation := range result.Data {
 			if s.trackedSubs.IsSubscribed(delegation.StakingTxHashHex) {
 				continue
 			}
@@ -61,24 +50,20 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 			}
 
 			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+
 			log.Debug().
 				Str("stakingTxHash", delegation.StakingTxHashHex).
 				Msg("Successfully registered BTC notification")
 		}
 
-		lastProcessedID = result.LastProcessedID
-
-		// If this was the last batch, we can stop
-		if result.IsLastBatch {
+		pageToken = result.PaginationToken
+		if pageToken == "" {
 			break
 		}
 	}
 
 	log.Info().
-		Int("total_delegations_fetched", totalFetched).
-		Int("total_batches", batchCount).
-		Int("batch_size", int(batchSize)).
-		Float64("duration_seconds", time.Since(startTime).Seconds()).
+		Int("total_processed", totalProcessed).
 		Msg("BTC subscription processing completed")
 
 	return nil
