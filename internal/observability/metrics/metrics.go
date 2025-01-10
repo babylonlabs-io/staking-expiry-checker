@@ -73,12 +73,11 @@ func initMetricsRouter(metricsPort int) {
 
 // registerMetrics initializes and register the Prometheus metrics.
 func registerMetrics() {
-	defaultHistogramBucketsSeconds := []float64{0.1, 0.5, 1, 2.5, 5, 10, 30}
 	pollerDurationHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "poll_duration_seconds",
 			Help:    "Histogram of poll durations in seconds.",
-			Buckets: defaultHistogramBucketsSeconds,
+			Buckets: []float64{1, 5, 10, 30, 60, 120, 300, 600, 1200, 3600},
 		},
 		[]string{"poller_name", "status"},
 	)
@@ -87,7 +86,7 @@ func registerMetrics() {
 		prometheus.HistogramOpts{
 			Name:    "btcclient_duration_seconds",
 			Help:    "Histogram of btcclient durations in seconds.",
-			Buckets: defaultHistogramBucketsSeconds,
+			Buckets: []float64{0.1, 0.5, 1, 2.5, 5, 10, 30},
 		},
 		[]string{"function", "status"},
 	)
