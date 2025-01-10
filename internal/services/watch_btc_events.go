@@ -46,7 +46,8 @@ func (s *Service) watchForSpendStakingTx(
 			stakingTxHashHex,
 		); err != nil {
 			log.Error().
-				Err(err).
+				Interface("error", err).
+				Stack().
 				Str("staking_tx", stakingTxHashHex).
 				Str("spending_tx", spendDetail.SpendingTx.TxHash().String()).
 				Msg("failed to handle spending staking transaction")
