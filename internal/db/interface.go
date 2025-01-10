@@ -11,7 +11,7 @@ import (
 type DbInterface interface {
 	Ping(ctx context.Context) error
 	FindExpiredDelegations(
-		ctx context.Context, btcTipHeight uint64,
+		ctx context.Context, btcTipHeight uint64, limit int64,
 	) ([]model.TimeLockDocument, error)
 	DeleteExpiredDelegation(
 		ctx context.Context, id primitive.ObjectID,
@@ -39,6 +39,11 @@ type DbInterface interface {
 	GetBTCDelegationByStakingTxHash(
 		ctx context.Context, stakingTxHash string,
 	) (*model.DelegationDocument, error)
-	GetBTCDelegationsByStates(ctx context.Context, states []types.DelegationState) ([]*model.DelegationDocument, error)
+	GetBTCDelegationsByStatesInBatches(
+		ctx context.Context,
+		states []types.DelegationState,
+		lastProcessedID string,
+		batchSize int64,
+	) (*BatchResult, error)
 	GetBTCDelegationState(ctx context.Context, stakingTxHash string) (*types.DelegationState, error)
 }

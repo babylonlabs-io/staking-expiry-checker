@@ -104,18 +104,37 @@ func (db *Database) GetBTCDelegationByStakingTxHash(
 	return &delegationDoc, nil
 }
 
-func (db *Database) GetBTCDelegationsByStates(
+type BatchResult struct {
+	Delegations     []*model.DelegationDocument
+	LastProcessedID string
+	IsLastBatch     bool
+}
+
+func (db *Database) GetBTCDelegationsByStatesInBatches(
 	ctx context.Context,
 	states []types.DelegationState,
-) ([]*model.DelegationDocument, error) {
-	// Convert states to a slice of strings
+	lastProcessedID string,
+	batchSize int64,
+) (*BatchResult, error) {
+	if batchSize <= 0 {
+		batchSize = 500 // Default batch size
+	}
+
 	stateStrings := make([]string, len(states))
 	for i, state := range states {
 		stateStrings[i] = state.ToString()
 	}
 
-	filter := bson.M{"state": bson.M{"$in": stateStrings}}
-	opts := options.Find().SetLimit(200) // to prevent large result sets
+	filter := bson.M{
+		"state": bson.M{"$in": stateStrings},
+	}
+	if lastProcessedID != "" {
+		filter["_id"] = bson.M{"$gt": lastProcessedID}
+	}
+
+	opts := options.Find().
+		SetLimit(batchSize).
+		SetSort(bson.M{"_id": 1})
 
 	cursor, err := db.client.Database(db.dbName).
 		Collection(model.DelegationsCollection).
@@ -130,7 +149,16 @@ func (db *Database) GetBTCDelegationsByStates(
 		return nil, err
 	}
 
-	return delegations, nil
+	var lastProcessedStakingTxHashHex string
+	if len(delegations) > 0 {
+		lastProcessedStakingTxHashHex = delegations[len(delegations)-1].StakingTxHashHex
+	}
+
+	return &BatchResult{
+		Delegations:     delegations,
+		LastProcessedID: lastProcessedStakingTxHashHex,
+		IsLastBatch:     len(delegations) < int(batchSize),
+	}, nil
 }
 
 func (db *Database) GetBTCDelegationState(

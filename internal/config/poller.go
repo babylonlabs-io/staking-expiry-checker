@@ -8,9 +8,15 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	MinBatchSize = 200
+	MaxBatchSize = 1000
+)
+
 type PollerConfig struct {
-	Interval time.Duration `mapstructure:"interval"`
-	Timeout  time.Duration `mapstructure:"timeout"`
+	Interval  time.Duration `mapstructure:"interval"`
+	Timeout   time.Duration `mapstructure:"timeout"`
+	BatchSize int64         `mapstructure:"batch-size"`
 }
 
 type PollersConfig struct {
@@ -42,6 +48,10 @@ func (cfg *PollerConfig) Validate() error {
 
 	if cfg.Timeout <= 0 {
 		return errors.New("poll timeout must be greater than 0")
+	}
+
+	if cfg.BatchSize < MinBatchSize || cfg.BatchSize > MaxBatchSize {
+		return fmt.Errorf("batch size must be between %d and %d", MinBatchSize, MaxBatchSize)
 	}
 
 	return nil

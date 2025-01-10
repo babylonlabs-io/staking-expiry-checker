@@ -1,11 +1,13 @@
 pollers:
   log-level: debug
   expiry-checker:
-    interval: 5s
-    timeout: 10s
+    interval: 10s
+    timeout: 100s
+    batch-size: 500
   btc-subscriber:
-    interval: 5s
-    timeout: 10s
+    interval: 10s
+    timeout: 100s
+    batch-size: 500
 db:
   username: root
   password: example
