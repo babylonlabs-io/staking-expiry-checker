@@ -3,16 +3,15 @@ pollers:
   expiry-checker:
     interval: 10s
     timeout: 100s
-    batch-size: 200
   btc-subscriber:
     interval: 10s
     timeout: 100s
-    batch-size: 500
 db:
   username: root
   password: example
   address: "mongodb://localhost:27017"
   db-name: staking-api-service
+  max-pagination-limit: 1000
 btc:
   rpchost: 127.0.0.1:38332 
   rpcuser: rpcuser
