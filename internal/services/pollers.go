@@ -11,8 +11,9 @@ import (
 
 func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 	var (
-		pageToken      = ""
-		totalProcessed = 0
+		pageToken       = ""
+		totalProcessed  = 0
+		totalSubscribed = 0
 	)
 	for {
 		result, err := s.db.GetBTCDelegationsByStates(
@@ -50,6 +51,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 			}
 
 			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+			totalSubscribed++
 
 			log.Debug().
 				Str("stakingTxHash", delegation.StakingTxHashHex).
@@ -64,6 +66,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 
 	log.Info().
 		Int("total_processed", totalProcessed).
+		Int("total_subscribed", totalSubscribed).
 		Msg("BTC subscription processing completed")
 
 	return nil
