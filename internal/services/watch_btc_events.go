@@ -38,13 +38,14 @@ func (s *Service) watchForSpendStakingTx(
 			Str("staking_tx", stakingTxHashHex).
 			Str("spending_tx", spendDetail.SpendingTx.TxHash().String()).
 			Msg("staking tx has been spent")
-		if err := s.handleSpendingStakingTransaction(
+		err := s.handleSpendingStakingTransaction(
 			quitCtx,
 			spendDetail.SpendingTx,
 			uint32(spendDetail.SpendingHeight),
 			spendDetail.SpenderInputIndex,
 			stakingTxHashHex,
-		); err != nil {
+		)
+		if err != nil {
 			log.Error().
 				Interface("error", err).
 				Stack().
@@ -76,15 +77,18 @@ func (s *Service) watchForSpendUnbondingTx(
 		log.Debug().
 			Str("staking_tx", stakingTxHashHex).
 			Msg("unbonding tx has been spent")
-		if err := s.handleSpendingUnbondingTransaction(
+		err := s.handleSpendingUnbondingTransaction(
 			quitCtx,
 			spendDetail.SpendingTx,
 			spendDetail.SpenderInputIndex,
 			stakingTxHashHex,
-		); err != nil {
+		)
+		if err != nil {
 			log.Error().
-				Err(err).
+				Interface("error", err).
+				Stack().
 				Str("staking_tx", stakingTxHashHex).
+				Str("spending_tx", spendDetail.SpendingTx.TxHash().String()).
 				Msg("failed to handle spending unbonding transaction")
 			return
 		}
