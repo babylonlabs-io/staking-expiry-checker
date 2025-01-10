@@ -11,7 +11,7 @@ import (
 type DbInterface interface {
 	Ping(ctx context.Context) error
 	FindExpiredDelegations(
-		ctx context.Context, btcTipHeight uint64, limit int64,
+		ctx context.Context, btcTipHeight uint64,
 	) ([]model.TimeLockDocument, error)
 	DeleteExpiredDelegation(
 		ctx context.Context, id primitive.ObjectID,

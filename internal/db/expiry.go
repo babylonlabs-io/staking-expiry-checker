@@ -10,11 +10,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (db *Database) FindExpiredDelegations(ctx context.Context, btcTipHeight uint64, limit int64) ([]model.TimeLockDocument, error) {
+func (db *Database) FindExpiredDelegations(ctx context.Context, btcTipHeight uint64) ([]model.TimeLockDocument, error) {
 	client := db.client.Database(db.dbName).Collection(model.TimeLockCollection)
 	filter := bson.M{"expire_height": bson.M{"$lte": btcTipHeight}}
 
-	opts := options.Find().SetLimit(limit) // to prevent large result sets
+	opts := options.Find().SetLimit(db.cfg.MaxPaginationLimit) // to prevent large result sets
 	cursor, err := client.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err

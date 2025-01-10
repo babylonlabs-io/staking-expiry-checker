@@ -78,10 +78,7 @@ func (s *Service) processExpiredDelegations(ctx context.Context) *types.Error {
 
 	// Process a single batch of expired delegations without pagination.
 	// Since we delete each delegation after processing it, pagination is not needed.
-	// Delegations are deleted to prevent duplicate processing in subsequent poller runs.
-	// The batch size is configured via ExpiryChecker.BatchSize in the config.
-	limit := s.cfg.Pollers.ExpiryChecker.BatchSize
-	expiredDelegations, err := s.db.FindExpiredDelegations(ctx, uint64(btcTip), limit)
+	expiredDelegations, err := s.db.FindExpiredDelegations(ctx, uint64(btcTip))
 	if err != nil {
 		log.Error().Err(err).Msg("Error finding expired delegations")
 		return types.NewInternalServiceError(err)
