@@ -39,6 +39,10 @@ type DbInterface interface {
 	GetBTCDelegationByStakingTxHash(
 		ctx context.Context, stakingTxHash string,
 	) (*model.DelegationDocument, error)
-	GetBTCDelegationsByStates(ctx context.Context, states []types.DelegationState) ([]*model.DelegationDocument, error)
+	GetBTCDelegationsByStates(
+		ctx context.Context,
+		states []types.DelegationState,
+		paginationToken string,
+	) (*DbResultMap[model.DelegationDocument], error)
 	GetBTCDelegationState(ctx context.Context, stakingTxHash string) (*types.DelegationState, error)
 }

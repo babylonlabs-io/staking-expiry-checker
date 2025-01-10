@@ -1,16 +1,17 @@
 pollers:
   log-level: debug
   expiry-checker:
-    interval: 5s
-    timeout: 1000s
+    interval: 10s
+    timeout: 100s
   btc-subscriber:
-    interval: 5s
-    timeout: 1000s
+    interval: 10s
+    timeout: 100s
 db:
   username: root
   password: example
   address: "mongodb://localhost:27017"
   db-name: staking-api-service
+  max-pagination-limit: 1000
 btc:
   rpchost: 127.0.0.1:38332 
   rpcuser: rpcuser

@@ -10,48 +10,64 @@ import (
 )
 
 func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
-	// Get delegations that need BTC notifications
-	delegations, err := s.db.GetBTCDelegationsByStates(ctx, []types.DelegationState{
-		types.Unbonded,
-		types.UnbondingRequested,
-	})
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to get delegations for BTC subscription")
-		return types.NewInternalServiceError(err)
-	}
-
-	if len(delegations) == 0 {
-		log.Debug().Msg("No delegations found for BTC subscription")
-		return nil
-	}
-
-	// Process each delegation
-	for _, delegation := range delegations {
-		if s.trackedSubs.IsSubscribed(delegation.StakingTxHashHex) {
-			continue
-		}
-
-		err := s.registerStakingSpendNotification(
-			delegation.StakingTxHashHex,
-			delegation.StakingTx.TxHex,
-			uint32(delegation.StakingTx.OutputIndex),
-			uint32(delegation.StakingTx.StartHeight),
+	var (
+		pageToken       = ""
+		totalProcessed  = 0
+		totalSubscribed = 0
+	)
+	for {
+		result, err := s.db.GetBTCDelegationsByStates(
+			ctx,
+			[]types.DelegationState{
+				types.Unbonded,
+				types.UnbondingRequested,
+			},
+			pageToken,
 		)
 		if err != nil {
-			log.Error().
-				Err(err).
-				Str("stakingTxHash", delegation.StakingTxHashHex).
-				Msg("Failed to register staking spend notification")
+			log.Error().Err(err).Msg("Failed to get delegations for BTC subscription")
 			return types.NewInternalServiceError(err)
 		}
 
-		// Add to tracked subscriptions after successful registration
-		s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+		totalProcessed += len(result.Data)
 
-		log.Debug().
-			Str("stakingTxHash", delegation.StakingTxHashHex).
-			Msg("Successfully registered BTC notification")
+		// Process batch
+		for _, delegation := range result.Data {
+			if s.trackedSubs.IsSubscribed(delegation.StakingTxHashHex) {
+				continue
+			}
+
+			if err := s.registerStakingSpendNotification(
+				delegation.StakingTxHashHex,
+				delegation.StakingTx.TxHex,
+				uint32(delegation.StakingTx.OutputIndex),
+				uint32(delegation.StakingTx.StartHeight),
+			); err != nil {
+				log.Error().
+					Err(err).
+					Str("stakingTxHash", delegation.StakingTxHashHex).
+					Msg("Failed to register staking spend notification")
+				return types.NewInternalServiceError(err)
+			}
+
+			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+			totalSubscribed++
+
+			log.Debug().
+				Str("stakingTxHash", delegation.StakingTxHashHex).
+				Msg("Successfully registered BTC notification")
+		}
+
+		pageToken = result.PaginationToken
+		if pageToken == "" {
+			break
+		}
 	}
+
+	log.Info().
+		Int("total_processed", totalProcessed).
+		Int("total_subscribed", totalSubscribed).
+		Msg("BTC subscription processing completed")
 
 	return nil
 }
@@ -63,7 +79,8 @@ func (s *Service) processExpiredDelegations(ctx context.Context) *types.Error {
 		return types.NewInternalServiceError(err)
 	}
 
-	// Single batch of expired delegations
+	// Process a single batch of expired delegations without pagination.
+	// Since we delete each delegation after processing it, pagination is not needed.
 	expiredDelegations, err := s.db.FindExpiredDelegations(ctx, uint64(btcTip))
 	if err != nil {
 		log.Error().Err(err).Msg("Error finding expired delegations")

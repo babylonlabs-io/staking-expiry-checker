@@ -103,9 +103,13 @@ func (s *Service) startExpiryPoller(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.ExpiryChecker.Timeout)
-			if err := s.processExpiredDelegations(pollingCtx); err != nil {
+			start := time.Now()
+			err := s.processExpiredDelegations(pollingCtx)
+			if err != nil {
 				log.Error().Err(err).Msg("Error processing expired delegations")
 			}
+			duration := time.Since(start)
+			metrics.ObservePollerDuration("expiry_poller", duration, err)
 			cancel()
 		case <-ctx.Done():
 			log.Info().Msg("Expiry poller stopped due to context cancellation")
@@ -127,9 +131,13 @@ func (s *Service) startBTCSubscriberPoller(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.BtcSubscriber.Timeout)
-			if err := s.processBTCSubscriber(pollingCtx); err != nil {
+			start := time.Now()
+			err := s.processBTCSubscriber(pollingCtx)
+			if err != nil {
 				log.Error().Err(err).Msg("Error processing BTC subscriptions")
 			}
+			duration := time.Since(start)
+			metrics.ObservePollerDuration("btc_subscriber_poller", duration, err)
 			cancel()
 		case <-ctx.Done():
 			log.Info().Msg("BTC subscriber poller stopped due to context cancellation")
