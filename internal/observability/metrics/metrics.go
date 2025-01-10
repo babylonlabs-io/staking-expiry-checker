@@ -30,7 +30,7 @@ func (O Outcome) String() string {
 var (
 	once                                         sync.Once
 	metricsRouter                                *chi.Mux
-	pollDurationHistogram                        *prometheus.HistogramVec
+	pollerDurationHistogram                      *prometheus.HistogramVec
 	btcClientDurationHistogram                   *prometheus.HistogramVec
 	invalidTransactionsCounter                   *prometheus.CounterVec
 	failedVerifyingUnbondingTxsCounter           prometheus.Counter
@@ -74,13 +74,13 @@ func initMetricsRouter(metricsPort int) {
 // registerMetrics initializes and register the Prometheus metrics.
 func registerMetrics() {
 	defaultHistogramBucketsSeconds := []float64{0.1, 0.5, 1, 2.5, 5, 10, 30}
-	pollDurationHistogram = prometheus.NewHistogramVec(
+	pollerDurationHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "poll_duration_seconds",
 			Help:    "Histogram of poll durations in seconds.",
 			Buckets: defaultHistogramBucketsSeconds,
 		},
-		[]string{"status"},
+		[]string{"poller_name", "status"},
 	)
 
 	btcClientDurationHistogram = prometheus.NewHistogramVec(
@@ -124,7 +124,7 @@ func registerMetrics() {
 	)
 
 	prometheus.MustRegister(
-		pollDurationHistogram,
+		pollerDurationHistogram,
 		btcClientDurationHistogram,
 		invalidTransactionsCounter,
 		failedVerifyingUnbondingTxsCounter,
@@ -178,4 +178,12 @@ func IncrementFailedVerifyingStakingWithdrawalTxCounter() {
 
 func IncrementFailedVerifyingUnbondingWithdrawalTxCounter() {
 	failedVerifyingUnbondingWithdrawalTxsCounter.Inc()
+}
+
+func ObservePollerDuration(pollerName string, duration time.Duration, err error) {
+	status := "success"
+	if err != nil {
+		status = "failure"
+	}
+	pollerDurationHistogram.WithLabelValues(pollerName, status).Observe(duration.Seconds())
 }
