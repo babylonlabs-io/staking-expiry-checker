@@ -13,13 +13,13 @@ func OutdatedStatesForWithdraw() []types.DelegationState {
 	return []types.DelegationState{types.Withdrawn}
 }
 
-// QualifiedStatesToUnbonding returns the qualified exisitng states to transition to "unbonding"
-// The Active state is allowed to directly transition to Unbonding without the need of UnbondingRequested due to bootstrap usecase
+// QualifiedStatesToUnbonding returns the qualified existing states to transition to "unbonding"
+// The Active state is allowed to directly transition to Unbonding without the need of UnbondingRequested due to bootstrap use case
 func QualifiedStatesToUnbonding() []types.DelegationState {
 	return []types.DelegationState{types.Active, types.UnbondingRequested}
 }
 
-// QualifiedStatesToUnbonded returns the qualified exisitng states to transition to "unbonded"
+// QualifiedStatesToUnbonded returns the qualified existing states to transition to "unbonded"
 func QualifiedStatesToUnbonded(unbondTxType types.StakingTxType) []types.DelegationState {
 	switch unbondTxType {
 	case types.ActiveTxType:
@@ -31,7 +31,7 @@ func QualifiedStatesToUnbonded(unbondTxType types.StakingTxType) []types.Delegat
 	}
 }
 
-// QualifiedStatesToWithdrawn returns the qualified exisitng states to transition to "withdrawn"
+// QualifiedStatesToWithdrawn returns the qualified existing states to transition to "withdrawn"
 func QualifiedStatesToWithdraw() []types.DelegationState {
 	return []types.DelegationState{types.Unbonded}
 }
