@@ -517,7 +517,7 @@ func (s *Service) registerStakingSpendNotification(
 	}
 
 	log.Debug().
-		Str("stakingTxHash", stakingTxHashHex).
+		Str("staking_tx", stakingTxHashHex).
 		Msg("registering staking spend notification")
 
 	stakingOutpoint := wire.OutPoint{
