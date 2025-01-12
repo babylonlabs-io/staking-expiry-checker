@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
+func (s *Service) processBTCSubscriber(ctx context.Context) error {
 	var (
 		pageToken       = ""
 		totalProcessed  = 0
@@ -26,7 +26,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 		)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get delegations for BTC subscription")
-			return types.NewInternalServiceError(err)
+			return err
 		}
 
 		totalProcessed += len(result.Data)
@@ -47,7 +47,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 					Err(err).
 					Str("stakingTxHash", delegation.StakingTxHashHex).
 					Msg("Failed to register staking spend notification")
-				return types.NewInternalServiceError(err)
+				return err
 			}
 
 			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
@@ -72,11 +72,11 @@ func (s *Service) processBTCSubscriber(ctx context.Context) *types.Error {
 	return nil
 }
 
-func (s *Service) processExpiredDelegations(ctx context.Context) *types.Error {
+func (s *Service) processExpiredDelegations(ctx context.Context) error {
 	btcTip, err := s.btc.GetBlockCount()
 	if err != nil {
 		log.Error().Err(err).Msg("Error getting BTC tip height")
-		return types.NewInternalServiceError(err)
+		return err
 	}
 
 	// Process a single batch of expired delegations without pagination.
@@ -84,26 +84,31 @@ func (s *Service) processExpiredDelegations(ctx context.Context) *types.Error {
 	expiredDelegations, err := s.db.FindExpiredDelegations(ctx, uint64(btcTip))
 	if err != nil {
 		log.Error().Err(err).Msg("Error finding expired delegations")
-		return types.NewInternalServiceError(err)
+		return err
 	}
 
 	// Process each delegation in the batch
 	for _, delegation := range expiredDelegations {
 		txType, err := types.StakingTxTypeFromString(delegation.TxType)
 		if err != nil {
-			log.Error().Err(err).Msgf("Invalid timelock type: %s", delegation.TxType)
-			return types.NewInternalServiceError(err)
+			log.Error().
+				Err(err).
+				Str("txType", delegation.TxType).
+				Msg("Invalid timelock type")
+			return err
 		}
 
 		if err := s.TransitionToUnbondedState(ctx, txType, delegation.StakingTxHashHex); err != nil {
-			log.Error().Err(err).
-				Msgf("Error transitioning delegation to unbonded: %v", delegation.ID)
+			log.Error().
+				Err(err).
+				Str("stakingTxHashHex", delegation.StakingTxHashHex).
+				Msg("Error transitioning delegation to unbonded")
 			return err
 		}
 
 		if err := s.db.DeleteExpiredDelegation(ctx, delegation.ID); err != nil {
 			log.Error().Err(err).Msg("Error deleting expired delegation")
-			return types.NewInternalServiceError(err)
+			return err
 		}
 	}
 
@@ -114,18 +119,24 @@ func (s *Service) processExpiredDelegations(ctx context.Context) *types.Error {
 // It returns true if the delegation is found and successfully transitioned to unbonded state.
 func (s *Service) TransitionToUnbondedState(
 	ctx context.Context, stakingTxType types.StakingTxType, stakingTxHashHex string,
-) *types.Error {
+) error {
 	// Try to transition to unbonded, will skip if not eligible (NotFoundError)
 	err := s.db.TransitionToUnbondedState(ctx, stakingTxHashHex, utils.QualifiedStatesToUnbonded(stakingTxType))
 	if err != nil {
 		// If the delegation is not found, we can ignore the error, it just means the delegation is not in a state that we can transition to unbonded
 		if db.IsNotFoundError(err) {
 			errMsg := "delegation not found or no longer eligible to be unbonded after timelock expired"
-			log.Ctx(ctx).Warn().Str("stakingTxHashHex", stakingTxHashHex).Err(err).Msg(errMsg)
+			log.Error().
+				Err(err).
+				Str("stakingTxHashHex", stakingTxHashHex).
+				Msg(errMsg)
 			return nil
 		}
-		log.Ctx(ctx).Err(err).Str("stakingTxHash", stakingTxHashHex).Msg("Failed to transition to unbonded state")
-		return types.NewInternalServiceError(err)
+		log.Error().
+			Err(err).
+			Str("stakingTxHash", stakingTxHashHex).
+			Msg("Failed to transition to unbonded state")
+		return err
 	}
 	return nil
 }
