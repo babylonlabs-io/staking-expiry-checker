@@ -516,6 +516,10 @@ func (s *Service) registerStakingSpendNotification(
 		return fmt.Errorf("failed to deserialize staking tx: %w", err)
 	}
 
+	log.Debug().
+		Str("stakingTxHash", stakingTxHashHex).
+		Msg("registering staking spend notification")
+
 	stakingOutpoint := wire.OutPoint{
 		Hash:  *stakingTxHash,
 		Index: stakingOutputIdx,
@@ -569,11 +573,6 @@ func (s *Service) registerUnbondingSpendNotification(
 	if btcErr != nil {
 		return fmt.Errorf("failed to register spend ntfn for unbonding tx %s: %w", stakingTxHashHex, btcErr)
 	}
-
-	log.Debug().
-		Str("staking_tx", stakingTxHashHex).
-		Str("unbonding_tx", unbondingTx.TxHash().String()).
-		Msg("registered unbonding spend notification")
 
 	s.wg.Add(1)
 	go s.watchForSpendUnbondingTx(spendEv, stakingTxHashHex)

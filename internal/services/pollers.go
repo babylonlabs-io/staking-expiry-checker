@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
@@ -25,8 +26,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 			pageToken,
 		)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to get delegations for BTC subscription")
-			return err
+			return fmt.Errorf("error getting BTC delegations by states: %w", err)
 		}
 
 		totalProcessed += len(result.Data)
@@ -47,7 +47,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 					Err(err).
 					Str("stakingTxHash", delegation.StakingTxHashHex).
 					Msg("Failed to register staking spend notification")
-				return err
+				return fmt.Errorf("failed to register staking spend notification: %w", err)
 			}
 
 			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
@@ -75,40 +75,29 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 func (s *Service) processExpiredDelegations(ctx context.Context) error {
 	btcTip, err := s.btc.GetBlockCount()
 	if err != nil {
-		log.Error().Err(err).Msg("Error getting BTC tip height")
-		return err
+		return fmt.Errorf("error getting BTC tip height: %w", err)
 	}
 
 	// Process a single batch of expired delegations without pagination.
 	// Since we delete each delegation after processing it, pagination is not needed.
 	expiredDelegations, err := s.db.FindExpiredDelegations(ctx, uint64(btcTip))
 	if err != nil {
-		log.Error().Err(err).Msg("Error finding expired delegations")
-		return err
+		return fmt.Errorf("error finding expired delegations: %w", err)
 	}
 
 	// Process each delegation in the batch
 	for _, delegation := range expiredDelegations {
 		txType, err := types.StakingTxTypeFromString(delegation.TxType)
 		if err != nil {
-			log.Error().
-				Err(err).
-				Str("txType", delegation.TxType).
-				Msg("Invalid timelock type")
-			return err
+			return fmt.Errorf("invalid timelock type: %w", err)
 		}
 
 		if err := s.TransitionToUnbondedState(ctx, txType, delegation.StakingTxHashHex); err != nil {
-			log.Error().
-				Err(err).
-				Str("stakingTxHashHex", delegation.StakingTxHashHex).
-				Msg("Error transitioning delegation to unbonded")
-			return err
+			return fmt.Errorf("error transitioning delegation to unbonded: %w", err)
 		}
 
 		if err := s.db.DeleteExpiredDelegation(ctx, delegation.ID); err != nil {
-			log.Error().Err(err).Msg("Error deleting expired delegation")
-			return err
+			return fmt.Errorf("error deleting expired delegation: %w", err)
 		}
 	}
 
