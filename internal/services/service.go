@@ -114,8 +114,7 @@ func (s *Service) startExpiryPoller(ctx context.Context) {
 			metrics.ObservePollerDuration("expiry_poller", duration, err)
 			cancel()
 		case <-ctx.Done():
-			log.Info().
-				Msg("Expiry poller stopped due to context cancellation")
+			log.Info().Msg("Expiry poller stopped due to context cancellation")
 			return
 		case <-s.quit:
 			return
@@ -145,8 +144,7 @@ func (s *Service) startBTCSubscriberPoller(ctx context.Context) {
 			metrics.ObservePollerDuration("btc_subscriber_poller", duration, err)
 			cancel()
 		case <-ctx.Done():
-			log.Info().
-				Msg("BTC subscriber poller stopped due to context cancellation")
+			log.Info().Msg("BTC subscriber poller stopped due to context cancellation")
 			return
 		case <-s.quit:
 			return
