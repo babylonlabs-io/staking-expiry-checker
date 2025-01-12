@@ -114,18 +114,17 @@ func (s *Service) TransitionToUnbondedState(
 	if err != nil {
 		// If the delegation is not found, we can ignore the error, it just means the delegation is not in a state that we can transition to unbonded
 		if db.IsNotFoundError(err) {
-			errMsg := "delegation not found or no longer eligible to be unbonded after timelock expired"
 			log.Error().
 				Err(err).
 				Str("stakingTxHashHex", stakingTxHashHex).
-				Msg(errMsg)
+				Msg("delegation not found or no longer eligible to be unbonded after timelock expired")
 			return nil
 		}
 		log.Error().
 			Err(err).
 			Str("stakingTxHash", stakingTxHashHex).
-			Msg("Failed to transition to unbonded state")
-		return err
+			Msg("failed to transition to unbonded state")
+		return fmt.Errorf("failed to transition to unbonded state: %w", err)
 	}
 	return nil
 }
