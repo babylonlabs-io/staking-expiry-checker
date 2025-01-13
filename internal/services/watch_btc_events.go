@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/http"
 
 	"github.com/babylonlabs-io/babylon/btcstaking"
 	bbn "github.com/babylonlabs-io/babylon/types"
@@ -517,6 +516,10 @@ func (s *Service) registerStakingSpendNotification(
 		return fmt.Errorf("failed to deserialize staking tx: %w", err)
 	}
 
+	log.Debug().
+		Str("staking_tx", stakingTxHashHex).
+		Msg("registering staking spend notification")
+
 	stakingOutpoint := wire.OutPoint{
 		Hash:  *stakingTxHash,
 		Index: stakingOutputIdx,
@@ -541,23 +544,15 @@ func (s *Service) registerUnbondingSpendNotification(
 	stakingTxHashHex string,
 	unbondingTxHex string,
 	unbondingStartHeight uint64,
-) *types.Error {
+) error {
 	unbondingTxBytes, parseErr := hex.DecodeString(unbondingTxHex)
 	if parseErr != nil {
-		return types.NewError(
-			http.StatusInternalServerError,
-			types.InternalServiceError,
-			fmt.Errorf("failed to decode unbonding tx: %w", parseErr),
-		)
+		return fmt.Errorf("failed to decode unbonding tx: %w", parseErr)
 	}
 
 	unbondingTx, parseErr := bbn.NewBTCTxFromBytes(unbondingTxBytes)
 	if parseErr != nil {
-		return types.NewError(
-			http.StatusInternalServerError,
-			types.InternalServiceError,
-			fmt.Errorf("failed to parse unbonding tx: %w", parseErr),
-		)
+		return fmt.Errorf("failed to parse unbonding tx: %w", parseErr)
 	}
 
 	log.Debug().
@@ -576,11 +571,7 @@ func (s *Service) registerUnbondingSpendNotification(
 		uint32(unbondingStartHeight),
 	)
 	if btcErr != nil {
-		return types.NewError(
-			http.StatusInternalServerError,
-			types.InternalServiceError,
-			fmt.Errorf("failed to register spend ntfn for unbonding tx %s: %w", stakingTxHashHex, btcErr),
-		)
+		return fmt.Errorf("failed to register spend ntfn for unbonding tx %s: %w", stakingTxHashHex, btcErr)
 	}
 
 	s.wg.Add(1)

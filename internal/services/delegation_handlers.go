@@ -2,9 +2,7 @@ package services
 
 import (
 	"context"
-	"net/http"
 
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/db"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 	"github.com/rs/zerolog/log"
@@ -80,25 +78,6 @@ func (s *Service) handleUnbondingDelegation(ctx context.Context) {
 	}
 }
 
-// TransitionToUnbondingState process the actual confirmed unbonding tx by updating the delegation state to `unbonding`
-// It returns true if the delegation is found and successfully transitioned to unbonding state.
-func (s *Service) TransitionToUnbondingState(
-	ctx context.Context, stakingTxHashHex string,
-	unbondingStartHeight, unbondingTimelock, unbondingOutputIndex uint64,
-	unbondingTxHex string, unbondingStartTimestamp int64,
-) *types.Error {
-	err := s.db.TransitionToUnbondingState(ctx, stakingTxHashHex, unbondingStartHeight, unbondingTimelock, unbondingOutputIndex, unbondingTxHex, unbondingStartTimestamp)
-	if err != nil {
-		if ok := db.IsNotFoundError(err); ok {
-			log.Ctx(ctx).Warn().Str("stakingTxHashHex", stakingTxHashHex).Err(err).Msg("delegation not found or no longer eligible for unbonding")
-			return nil
-		}
-		log.Ctx(ctx).Error().Str("stakingTxHashHex", stakingTxHashHex).Err(err).Msg("failed to transition to unbonding state")
-		return types.NewError(http.StatusInternalServerError, types.InternalServiceError, err)
-	}
-	return nil
-}
-
 // handleWithdrawnDelegation processes withdrawn delegations
 func (s *Service) handleWithdrawnDelegation(ctx context.Context) {
 	s.wg.Add(1)
@@ -160,14 +139,14 @@ func (s *Service) handleWithdrawnDelegation(ctx context.Context) {
 func (s *Service) SaveNewTimeLockExpire(
 	ctx context.Context, stakingTxHashHex string,
 	startHeight, timelock uint64, txType types.StakingTxType,
-) *types.Error {
+) error {
 	expireHeight := startHeight + timelock
 	err := s.db.SaveTimeLockExpireCheck(
 		ctx, stakingTxHashHex, expireHeight, txType.ToString(),
 	)
 	if err != nil {
 		log.Ctx(ctx).Err(err).Msg("Failed to save expire check")
-		return types.NewInternalServiceError(err)
+		return err
 	}
 	return nil
 }
