@@ -104,6 +104,7 @@ func (s *Service) startExpiryPoller(ctx context.Context) {
 		case <-ticker.C:
 			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.ExpiryChecker.Timeout)
 			start := time.Now()
+			log.Debug().Msg("starting expiry poller")
 			err := s.processExpiredDelegations(pollingCtx)
 			if err != nil {
 				log.Error().Err(err).Msg("Error processing expired delegations")
@@ -132,6 +133,7 @@ func (s *Service) startBTCSubscriberPoller(ctx context.Context) {
 		case <-ticker.C:
 			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.BtcSubscriber.Timeout)
 			start := time.Now()
+			log.Debug().Msg("starting BTC subscriber poller")
 			err := s.processBTCSubscriber(pollingCtx)
 			if err != nil {
 				log.Error().Err(err).Msg("Error processing BTC subscriptions")
