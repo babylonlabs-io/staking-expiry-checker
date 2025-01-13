@@ -538,10 +538,14 @@ func (s *Service) registerStakingSpendNotification(
 			// Will leave it as it is for now with alerts on log
 			log.Error().
 				Err(err).
-				Str("stakingTxHash", stakingTxHashHex).
+				Str("staking_tx", stakingTxHashHex).
 				Msg("failed to register spend notification")
 			return
 		}
+
+		log.Debug().
+			Str("staking_tx", stakingTxHashHex).
+			Msg("registered spend notification")
 
 		// Watch in the same goroutine
 		s.watchForSpendStakingTx(spendEv, stakingTxHashHex)
@@ -565,11 +569,6 @@ func (s *Service) registerUnbondingSpendNotification(
 		return fmt.Errorf("failed to parse unbonding tx: %w", parseErr)
 	}
 
-	log.Debug().
-		Str("staking_tx", stakingTxHashHex).
-		Str("unbonding_tx", unbondingTx.TxHash().String()).
-		Msg("registering early unbonding spend notification")
-
 	unbondingOutpoint := wire.OutPoint{
 		Hash:  unbondingTx.TxHash(),
 		Index: 0, // unbonding tx has only 1 output
@@ -583,6 +582,11 @@ func (s *Service) registerUnbondingSpendNotification(
 	if btcErr != nil {
 		return fmt.Errorf("failed to register spend ntfn for unbonding tx %s: %w", stakingTxHashHex, btcErr)
 	}
+
+	log.Debug().
+		Str("staking_tx", stakingTxHashHex).
+		Str("unbonding_tx", unbondingTx.TxHash().String()).
+		Msg("registered early unbonding spend notification")
 
 	s.wg.Add(1)
 	go s.watchForSpendUnbondingTx(spendEv, stakingTxHashHex)
