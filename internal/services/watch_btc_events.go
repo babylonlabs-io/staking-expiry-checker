@@ -26,7 +26,6 @@ func (s *Service) watchForSpendStakingTx(
 	spendEvent *notifier.SpendEvent,
 	stakingTxHashHex string,
 ) {
-	defer s.wg.Done()
 	quitCtx, cancel := s.quitContext()
 	defer cancel()
 
@@ -516,26 +515,37 @@ func (s *Service) registerStakingSpendNotification(
 		return fmt.Errorf("failed to deserialize staking tx: %w", err)
 	}
 
-	log.Debug().
-		Str("staking_tx", stakingTxHashHex).
-		Msg("registering staking spend notification")
-
 	stakingOutpoint := wire.OutPoint{
 		Hash:  *stakingTxHash,
 		Index: stakingOutputIdx,
 	}
 
-	spendEv, err := s.btcNotifier.RegisterSpendNtfn(
-		&stakingOutpoint,
-		stakingTx.TxOut[stakingOutputIdx].PkScript,
-		stakingStartHeight,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to register spend ntfn for staking tx %s: %w", stakingTxHashHex, err)
-	}
-
+	// Launch both registration and watching in a single goroutine
+	// to save time for caller
 	s.wg.Add(1)
-	go s.watchForSpendStakingTx(spendEv, stakingTxHashHex)
+	go func() {
+		defer s.wg.Done()
+
+		spendEv, err := s.btcNotifier.RegisterSpendNtfn(
+			&stakingOutpoint,
+			stakingTx.TxOut[stakingOutputIdx].PkScript,
+			stakingStartHeight,
+		)
+		if err != nil {
+			// TODO: Handle the error in a better way such as retrying immediately
+			// If continue to fail, we could retry by sending to queue and processing
+			// later again to make sure we don't miss any spend
+			// Will leave it as it is for now with alerts on log
+			log.Error().
+				Err(err).
+				Str("stakingTxHash", stakingTxHashHex).
+				Msg("failed to register spend notification")
+			return
+		}
+
+		// Watch in the same goroutine
+		s.watchForSpendStakingTx(spendEv, stakingTxHashHex)
+	}()
 
 	return nil
 }
