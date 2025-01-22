@@ -38,13 +38,13 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 			}
 
 			if delegation.State == types.Unbonded && delegation.UnbondingTx != nil {
-				// For early unbonded delegations i.e state is Unbonded and Unbonding Tx is present:
+				// For early unbonded delegations i.e. state is Unbonded and Unbonding Tx is present:
 				// 1. Staking output is already spent by the unbonding tx
 				// 2. Track unbonding output to detect withdrawal tx
 				if err := s.registerUnbondingSpendNotification(
 					delegation.StakingTxHashHex,
 					delegation.UnbondingTx.TxHex,
-					uint64(delegation.UnbondingTx.StartHeight),
+					delegation.UnbondingTx.StartHeight,
 				); err != nil {
 					log.Error().
 						Err(err).
