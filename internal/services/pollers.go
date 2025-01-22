@@ -37,17 +37,38 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 				continue
 			}
 
-			if err := s.registerStakingSpendNotification(
-				delegation.StakingTxHashHex,
-				delegation.StakingTx.TxHex,
-				uint32(delegation.StakingTx.OutputIndex),
-				uint32(delegation.StakingTx.StartHeight),
-			); err != nil {
-				log.Error().
-					Err(err).
-					Str("stakingTxHash", delegation.StakingTxHashHex).
-					Msg("Failed to register staking spend notification")
-				return fmt.Errorf("failed to register staking spend notification: %w", err)
+			if delegation.State == types.Unbonded && delegation.UnbondingTx != nil {
+				// For early unbonded delegations i.e state is Unbonded and Unbonding Tx is present:
+				// 1. Staking output is already spent by the unbonding tx
+				// 2. Track unbonding output to detect withdrawal tx
+				if err := s.registerUnbondingSpendNotification(
+					delegation.StakingTxHashHex,
+					delegation.UnbondingTx.TxHex,
+					uint64(delegation.UnbondingTx.StartHeight),
+				); err != nil {
+					log.Error().
+						Err(err).
+						Str("stakingTxHash", delegation.StakingTxHashHex).
+						Msg("Failed to register unbonding spend notification")
+					return fmt.Errorf("failed to register unbonding spend notification: %w", err)
+				}
+			} else {
+				// For all other cases, we track the staking transaction output:
+				// 1. Natural unbonding: Need to detect withdrawal tx
+				// 2. Unbonding requested: Need to monitor staking output
+				//    until the unbonding transaction is found.
+				if err := s.registerStakingSpendNotification(
+					delegation.StakingTxHashHex,
+					delegation.StakingTx.TxHex,
+					uint32(delegation.StakingTx.OutputIndex),
+					uint32(delegation.StakingTx.StartHeight),
+				); err != nil {
+					log.Error().
+						Err(err).
+						Str("stakingTxHash", delegation.StakingTxHashHex).
+						Msg("Failed to register staking spend notification")
+					return fmt.Errorf("failed to register staking spend notification: %w", err)
+				}
 			}
 
 			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
