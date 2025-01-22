@@ -45,7 +45,7 @@ func (s *Service) watchForSpendStakingTx(
 		)
 		if err != nil {
 			log.Error().
-				Interface("error", err).
+				Err(err).
 				Stack().
 				Str("staking_tx", stakingTxHashHex).
 				Str("spending_tx", spendDetail.SpendingTx.TxHash().String()).
@@ -82,7 +82,7 @@ func (s *Service) watchForSpendUnbondingTx(
 		)
 		if err != nil {
 			log.Error().
-				Interface("error", err).
+				Err(err).
 				Stack().
 				Str("staking_tx", stakingTxHashHex).
 				Str("spending_tx", spendDetail.SpendingTx.TxHash().String()).
