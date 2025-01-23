@@ -11,9 +11,9 @@ import (
 func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 	log.Info().Msg("Starting check for spent unbonding outputs...")
 	var (
-		pageToken                 = ""
-		totalUnbondedDelegations  = 0
-		totalWithdrawnDelegations = 0
+		pageToken                  = ""
+		totalUnbondedDelegations   = 0
+		totalSpentUnbondingOutputs = 0
 	)
 
 	for {
@@ -68,7 +68,7 @@ func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 
 				withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
 				utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
-				totalWithdrawnDelegations++
+				totalSpentUnbondingOutputs++
 			}
 		}
 
@@ -80,6 +80,6 @@ func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 
 	log.Info().
 		Int("total_unbonded_delegations", totalUnbondedDelegations).
-		Int("total_withdrawn_delegations", totalWithdrawnDelegations).
+		Int("total_spent_unbonding_outputs", totalSpentUnbondingOutputs).
 		Msg("Completed check for spent unbonding outputs")
 }
