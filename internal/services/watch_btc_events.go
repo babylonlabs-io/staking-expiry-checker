@@ -165,7 +165,8 @@ func (s *Service) handleSpendingStakingTransaction(
 		utils.PushOrQuit(s.unbondingDelegationChan, unbondingEvent, s.quit)
 
 		// Register unbonding spend notification
-		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, unbondingStartHeight)
+		unbondingSpendHeightHint := unbondingStartHeight + delegation.UnbondingTx.TimeLock - 1
+		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, uint32(unbondingSpendHeightHint))
 	}
 
 	// Try to validate as withdrawal transaction
@@ -556,7 +557,7 @@ func (s *Service) registerStakingSpendNotification(
 func (s *Service) registerUnbondingSpendNotification(
 	stakingTxHashHex string,
 	unbondingTxHex string,
-	unbondingStartHeight uint64,
+	spendHeightHint uint32,
 ) error {
 	unbondingTxBytes, parseErr := hex.DecodeString(unbondingTxHex)
 	if parseErr != nil {
@@ -582,7 +583,7 @@ func (s *Service) registerUnbondingSpendNotification(
 		spendEv, btcErr := s.btcNotifier.RegisterSpendNtfn(
 			&unbondingOutpoint,
 			unbondingTx.TxOut[0].PkScript,
-			uint32(unbondingStartHeight),
+			spendHeightHint,
 		)
 		if btcErr != nil {
 			// TODO: Handle the error in a better way such as retrying immediately

@@ -41,10 +41,13 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 				// For early unbonded delegations i.e. state is Unbonded and Unbonding Tx is present:
 				// 1. Staking output is already spent by the unbonding tx
 				// 2. Track unbonding output to detect withdrawal tx
+
+				// we are certain the unbonding tx will be spent after the timelock expires
+				unbondingSpendHeightHint := delegation.UnbondingTx.StartHeight + delegation.UnbondingTx.TimeLock - 1
 				if err := s.registerUnbondingSpendNotification(
 					delegation.StakingTxHashHex,
 					delegation.UnbondingTx.TxHex,
-					delegation.UnbondingTx.StartHeight,
+					uint32(unbondingSpendHeightHint),
 				); err != nil {
 					log.Error().
 						Err(err).
