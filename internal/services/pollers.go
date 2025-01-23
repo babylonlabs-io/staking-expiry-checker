@@ -62,10 +62,12 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 						Str("unbonding_tx", unbondingTxHashHex).
 						Msg("Found spent unbonding output - triggering withdrawn event")
 
-					// TODO: Ideally we should validate the spending tx using validateWithdrawalTxFromUnbonding
-					// and only then we should consider it withdrawn. But in this case there is no bitcoin rpc
-					// which provides spending tx details, only way is to perform historical block scanning and
-					// which is inefficient. We can skip the validatons for now, until we have a better solution.
+					// TODO: We should validate the spending tx using validateWithdrawalTxFromUnbonding before
+					// considering it withdrawn. However, Bitcoin RPC doesn't provide spending tx details directly.
+					// The only way would be historical block scanning which is inefficient. For now we skip
+					// validation, but we have a few options to improve this:
+					// 1. Implement efficient historical block scanning to find the spending tx
+					// 2. Run phase 1 indexer stack to identify any discrepancies in withdrawal txs
 
 					withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
 					utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
