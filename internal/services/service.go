@@ -71,20 +71,13 @@ func (s *Service) RunUntilShutdown(ctx context.Context) error {
 		}
 	}()
 
+	// Start pollers
+	go s.startExpiryPoller(ctx)
+	go s.startBTCSubscriberPoller(ctx)
+
 	// Start service handlers
 	go s.handleUnbondingDelegation(ctx)
 	go s.handleWithdrawnDelegation(ctx)
-
-	// Start expiry poller
-	go s.startExpiryPoller(ctx)
-
-	// Bootstrap by checking for any historical unbonding outputs that have been spent.
-	// This one-time operation scans all unbonded delegations to detect any withdrawals.
-	// This avoids putting load on the BTC notifier which is not optimized for historical scans.
-	s.checkUnbondingOutputsForSpends(ctx)
-
-	// Start BTC subscriber poller after bootstrap
-	go s.startBTCSubscriberPoller(ctx)
 
 	// Wait for context cancellation
 	<-ctx.Done()

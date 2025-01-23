@@ -38,22 +38,50 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 			}
 
 			if delegation.State == types.Unbonded && delegation.UnbondingTx != nil {
-				// For early unbonded delegations i.e. state is Unbonded and Unbonding Tx is present:
-				// 1. Staking output is already spent by the unbonding tx
-				// 2. Track unbonding output to detect withdrawal tx
+				// First check if the unbonding output is spent
+				// If spent, we can skip registering for spend notifications and consider it withdrawn
+				// This is to avoid putting load on the BTC notifier which is not optimized for historical scans.
+				unbondingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.UnbondingTx.TxHex)
+				if err != nil {
+					return fmt.Errorf("failed to decode unbonding transaction: %w", err)
+				}
 
-				// we are certain the unbonding tx will be spent after the timelock expires
-				unbondingSpendHeightHint := delegation.UnbondingTx.StartHeight + delegation.UnbondingTx.TimeLock - 1
-				if err := s.registerUnbondingSpendNotification(
-					delegation.StakingTxHashHex,
-					delegation.UnbondingTx.TxHex,
-					uint32(unbondingSpendHeightHint),
-				); err != nil {
-					log.Error().
-						Err(err).
-						Str("stakingTxHash", delegation.StakingTxHashHex).
-						Msg("Failed to register unbonding spend notification")
-					return fmt.Errorf("failed to register unbonding spend notification: %w", err)
+				unbondingTxHashHex := unbondingTx.TxHash().String()
+				isSpent, err := s.btc.IsUTXOSpent(unbondingTxHashHex, uint32(delegation.UnbondingTx.OutputIndex))
+				if err != nil {
+					return fmt.Errorf("failed to check unbonding output spent status: %w", err)
+				}
+				if isSpent {
+					log.Info().
+						Str("staking_tx", delegation.StakingTxHashHex).
+						Str("unbonding_tx", unbondingTxHashHex).
+						Msg("Found spent unbonding output - triggering withdrawn event")
+
+					// TODO: Ideally we should validate the spending tx using validateWithdrawalTxFromUnbonding
+					// and only then we should consider it withdrawn. But in this case there is no bitcoin rpc
+					// which provides spending tx details, only way is to perform historical block scanning and
+					// which is inefficient. We can skip the validatons for now, until we have a better solution.
+
+					withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
+					utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
+				} else {
+					// If not spent, we need to register for spend notifications
+					// We use the start height and timelock to calculate the height hint
+					// for the spend notification.
+					if err := s.registerUnbondingSpendNotification(
+						delegation.StakingTxHashHex,
+						delegation.UnbondingTx.TxHex,
+						uint32(delegation.UnbondingTx.StartHeight),
+					); err != nil {
+						log.Error().
+							Err(err).
+							Str("stakingTxHash", delegation.StakingTxHashHex).
+							Msg("Failed to register unbonding spend notification")
+						return fmt.Errorf("failed to register unbonding spend notification: %w", err)
+					}
+
+					s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+					totalSubscribed++
 				}
 			} else {
 				// For all other cases, we track the staking transaction output:
@@ -72,10 +100,9 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 						Msg("Failed to register staking spend notification")
 					return fmt.Errorf("failed to register staking spend notification: %w", err)
 				}
+				s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+				totalSubscribed++
 			}
-
-			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
-			totalSubscribed++
 
 			log.Debug().
 				Str("stakingTxHash", delegation.StakingTxHashHex).
