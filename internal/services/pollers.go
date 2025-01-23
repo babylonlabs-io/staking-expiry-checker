@@ -38,9 +38,13 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 			}
 
 			if delegation.State == types.Unbonded && delegation.UnbondingTx != nil {
-				// First check if the unbonding output is spent
-				// If spent, we can skip registering for spend notifications and consider it withdrawn
-				// This is to avoid putting load on the BTC notifier which is not optimized for historical scans.
+				// We use a hybrid approach to monitor unbonding output spends:
+				// 1. First check if the output is already spent using direct RPC call
+				// 2. Only register for spend notifications if the output is still unspent
+				//
+				// This avoids putting unnecessary load on the BTC notifier service which needs
+				// to maintain subscriptions and is not optimized for historical transaction scanning.
+				// The RPC call is more efficient for checking historical spend status.
 				unbondingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.UnbondingTx.TxHex)
 				if err != nil {
 					return fmt.Errorf("failed to decode unbonding transaction: %w", err)
@@ -65,9 +69,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 					withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
 					utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
 				} else {
-					// If not spent, we need to register for spend notifications
-					// We use the start height and timelock to calculate the height hint
-					// for the spend notification.
+					// If unbonding output is not spent, we need to register for spend notifications
 					if err := s.registerUnbondingSpendNotification(
 						delegation.StakingTxHashHex,
 						delegation.UnbondingTx.TxHex,
