@@ -11,7 +11,9 @@ import (
 func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 	log.Info().Msg("Starting check for spent unbonding outputs...")
 	var (
-		pageToken = ""
+		pageToken                 = ""
+		totalUnbondedDelegations  = 0
+		totalWithdrawnDelegations = 0
 	)
 
 	for {
@@ -28,6 +30,8 @@ func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 				Msg("Failed to fetch unbonded delegations from database")
 			return
 		}
+
+		totalUnbondedDelegations += len(result.Data)
 
 		for _, delegation := range result.Data {
 			if delegation.UnbondingTx == nil {
@@ -64,6 +68,7 @@ func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 
 				withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
 				utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
+				totalWithdrawnDelegations++
 			}
 		}
 
@@ -73,5 +78,8 @@ func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 		pageToken = result.PaginationToken
 	}
 
-	log.Info().Msg("Completed check for spent unbonding outputs")
+	log.Info().
+		Int("total_unbonded_delegations", totalUnbondedDelegations).
+		Int("total_withdrawn_delegations", totalWithdrawnDelegations).
+		Msg("Completed check for spent unbonding outputs")
 }
