@@ -165,8 +165,7 @@ func (s *Service) handleSpendingStakingTransaction(
 		utils.PushOrQuit(s.unbondingDelegationChan, unbondingEvent, s.quit)
 
 		// Register unbonding spend notification
-		unbondingSpendHeightHint := unbondingStartHeight + delegation.UnbondingTx.TimeLock - 1
-		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, uint32(unbondingSpendHeightHint))
+		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, uint32(unbondingStartHeight))
 	}
 
 	// Try to validate as withdrawal transaction

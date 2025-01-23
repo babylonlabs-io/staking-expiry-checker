@@ -134,7 +134,9 @@ func registerMetrics() {
 
 func RecordBtcClientMetrics[T any](clientRequest func() (T, error)) (T, error) {
 	var result T
-	functionName := utils.GetFunctionName(1)
+	// 1 for the caller, 2 for the caller of the caller
+	// We are using 2, b/c the clientCallWithRetry is used as a wrapper for the actual client request
+	functionName := utils.GetFunctionName(2)
 
 	start := time.Now()
 

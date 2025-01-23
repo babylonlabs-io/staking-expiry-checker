@@ -38,22 +38,55 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 			}
 
 			if delegation.State == types.Unbonded && delegation.UnbondingTx != nil {
-				// For early unbonded delegations i.e. state is Unbonded and Unbonding Tx is present:
-				// 1. Staking output is already spent by the unbonding tx
-				// 2. Track unbonding output to detect withdrawal tx
+				// We use a hybrid approach to monitor unbonding output spends:
+				// 1. First check if the output is already spent using direct RPC call
+				// 2. Only register for spend notifications if the output is still unspent
+				//
+				// This avoids putting unnecessary load on the BTC notifier service which needs
+				// to maintain subscriptions and is not optimized for historical transaction scanning.
+				// The RPC call is more efficient for checking historical spend status.
+				unbondingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.UnbondingTx.TxHex)
+				if err != nil {
+					return fmt.Errorf("failed to decode unbonding transaction: %w", err)
+				}
 
-				// we are certain the unbonding tx will be spent after the timelock expires
-				unbondingSpendHeightHint := delegation.UnbondingTx.StartHeight + delegation.UnbondingTx.TimeLock - 1
-				if err := s.registerUnbondingSpendNotification(
-					delegation.StakingTxHashHex,
-					delegation.UnbondingTx.TxHex,
-					uint32(unbondingSpendHeightHint),
-				); err != nil {
-					log.Error().
-						Err(err).
-						Str("stakingTxHash", delegation.StakingTxHashHex).
-						Msg("Failed to register unbonding spend notification")
-					return fmt.Errorf("failed to register unbonding spend notification: %w", err)
+				unbondingTxHashHex := unbondingTx.TxHash().String()
+				isSpent, err := s.btc.IsUTXOSpent(unbondingTxHashHex, uint32(delegation.UnbondingTx.OutputIndex))
+				if err != nil {
+					return fmt.Errorf("failed to check unbonding output spent status: %w", err)
+				}
+				if isSpent {
+					// Output is spent - trigger withdrawn event
+					log.Info().
+						Str("staking_tx", delegation.StakingTxHashHex).
+						Str("unbonding_tx", unbondingTxHashHex).
+						Msg("Found spent unbonding output - triggering withdrawn event")
+
+					// TODO: We should validate the spending tx using validateWithdrawalTxFromUnbonding before
+					// considering it withdrawn. However, Bitcoin RPC doesn't provide spending tx details directly.
+					// The only way would be historical block scanning which is inefficient. For now we skip
+					// validation, but we have a few options to improve this:
+					// 1. Implement efficient historical block scanning to find the spending tx
+					// 2. Run phase 1 indexer stack to identify any discrepancies in withdrawal txs
+
+					withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
+					utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
+				} else {
+					// Output not spent - register for spend notifications
+					if err := s.registerUnbondingSpendNotification(
+						delegation.StakingTxHashHex,
+						delegation.UnbondingTx.TxHex,
+						uint32(delegation.UnbondingTx.StartHeight),
+					); err != nil {
+						log.Error().
+							Err(err).
+							Str("stakingTxHash", delegation.StakingTxHashHex).
+							Msg("Failed to register unbonding spend notification")
+						return fmt.Errorf("failed to register unbonding spend notification: %w", err)
+					}
+
+					s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+					totalSubscribed++
 				}
 			} else {
 				// For all other cases, we track the staking transaction output:
@@ -72,10 +105,9 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 						Msg("Failed to register staking spend notification")
 					return fmt.Errorf("failed to register staking spend notification: %w", err)
 				}
+				s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
+				totalSubscribed++
 			}
-
-			s.trackedSubs.AddSubscription(delegation.StakingTxHashHex)
-			totalSubscribed++
 
 			log.Debug().
 				Str("stakingTxHash", delegation.StakingTxHashHex).
