@@ -65,9 +65,9 @@ func (_m *BtcInterface) GetBlockTimestamp(height uint64) (int64, error) {
 	return r0, r1
 }
 
-// IsUTXOSpent provides a mock function with given fields: txHex, vout
-func (_m *BtcInterface) IsUTXOSpent(txHex string, vout uint32) (bool, error) {
-	ret := _m.Called(txHex, vout)
+// IsUTXOSpent provides a mock function with given fields: txid, vout
+func (_m *BtcInterface) IsUTXOSpent(txid string, vout uint32) (bool, error) {
+	ret := _m.Called(txid, vout)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IsUTXOSpent")
@@ -76,16 +76,16 @@ func (_m *BtcInterface) IsUTXOSpent(txHex string, vout uint32) (bool, error) {
 	var r0 bool
 	var r1 error
 	if rf, ok := ret.Get(0).(func(string, uint32) (bool, error)); ok {
-		return rf(txHex, vout)
+		return rf(txid, vout)
 	}
 	if rf, ok := ret.Get(0).(func(string, uint32) bool); ok {
-		r0 = rf(txHex, vout)
+		r0 = rf(txid, vout)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	if rf, ok := ret.Get(1).(func(string, uint32) error); ok {
-		r1 = rf(txHex, vout)
+		r1 = rf(txid, vout)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -10,7 +10,9 @@ import (
 
 func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 	log.Info().Msg("Starting check for spent unbonding outputs...")
-	var pageToken = ""
+	var (
+		pageToken = ""
+	)
 
 	for {
 		result, err := s.db.GetBTCDelegationsByStates(
@@ -35,21 +37,29 @@ func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 				continue
 			}
 
-			isSpent, err := s.btc.IsUTXOSpent(delegation.UnbondingTx.TxHex, uint32(delegation.UnbondingTx.OutputIndex))
+			unbondingTx, err := utils.DeserializeBtcTransactionFromHex(delegation.UnbondingTx.TxHex)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("unbonding_tx", delegation.UnbondingTx.TxHex).
+					Msg("Failed to decode unbonding transaction")
+				continue
+			}
+			unbondingTxHashHex := unbondingTx.TxHash().String()
+
+			isSpent, err := s.btc.IsUTXOSpent(unbondingTxHashHex, uint32(delegation.UnbondingTx.OutputIndex))
 			if err != nil {
 				log.Error().
 					Err(err).
 					Str("staking_tx", delegation.StakingTxHashHex).
-					Str("unbonding_tx", delegation.UnbondingTx.TxHex).
-					Uint32("output_index", uint32(delegation.UnbondingTx.OutputIndex)).
+					Str("unbonding_tx", unbondingTxHashHex).
 					Msg("Failed to check unbonding output spent status")
 				continue
 			}
 			if isSpent {
 				log.Info().
 					Str("staking_tx", delegation.StakingTxHashHex).
-					Str("unbonding_tx", delegation.UnbondingTx.TxHex).
-					Uint32("output_index", uint32(delegation.UnbondingTx.OutputIndex)).
+					Str("unbonding_tx", unbondingTxHashHex).
 					Msg("Found spent unbonding output - triggering withdrawn event")
 
 				withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)

@@ -71,8 +71,10 @@ func (s *Service) RunUntilShutdown(ctx context.Context) error {
 		}
 	}()
 
-	// Bootstrap
-	go s.checkUnbondingOutputsForSpends(ctx)
+	// Bootstrap by checking for any historical unbonding outputs that have been spent.
+	// This one-time operation scans all unbonded delegations to detect any withdrawals.
+	// This avoids putting load on the BTC notifier which is not optimized for historical scans.
+	s.checkUnbondingOutputsForSpends(ctx)
 
 	// Start pollers
 	go s.startExpiryPoller(ctx)

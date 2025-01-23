@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/rs/zerolog/log"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 )
 
 type BtcClient struct {
@@ -54,15 +54,14 @@ func (b *BtcClient) GetBlockTimestamp(height uint64) (int64, error) {
 	}, b.cfg)
 }
 
-func (b *BtcClient) IsUTXOSpent(txHex string, vout uint32) (bool, error) {
+func (b *BtcClient) IsUTXOSpent(txid string, vout uint32) (bool, error) {
 	return clientCallWithRetry(func() (bool, error) {
-		tx, err := utils.DeserializeBtcTransactionFromHex(txHex)
+		hash, err := chainhash.NewHashFromStr(txid)
 		if err != nil {
 			return false, fmt.Errorf("failed to deserialize tx: %w", err)
 		}
-		hash := tx.TxHash()
 
-		txOut, err := b.client.GetTxOut(&hash, vout, false)
+		txOut, err := b.client.GetTxOut(hash, vout, false)
 		if err != nil {
 			return false, fmt.Errorf("failed to get txout: %w", err)
 		}
