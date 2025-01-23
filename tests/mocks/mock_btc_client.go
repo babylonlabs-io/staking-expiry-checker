@@ -65,6 +65,34 @@ func (_m *BtcInterface) GetBlockTimestamp(height uint64) (int64, error) {
 	return r0, r1
 }
 
+// IsUTXOSpent provides a mock function with given fields: txHex, vout
+func (_m *BtcInterface) IsUTXOSpent(txHex string, vout uint32) (bool, error) {
+	ret := _m.Called(txHex, vout)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsUTXOSpent")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string, uint32) (bool, error)); ok {
+		return rf(txHex, vout)
+	}
+	if rf, ok := ret.Get(0).(func(string, uint32) bool); ok {
+		r0 = rf(txHex, vout)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(string, uint32) error); ok {
+		r1 = rf(txHex, vout)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewBtcInterface creates a new instance of BtcInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewBtcInterface(t interface {

@@ -1,10 +1,15 @@
 package btcclient
 
 import (
+	"fmt"
+
+	"github.com/avast/retry-go/v4"
 	"github.com/btcsuite/btcd/rpcclient"
+	"github.com/rs/zerolog/log"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 )
 
 type BtcClient struct {
@@ -30,11 +35,11 @@ func NewBtcClient(cfg *config.BTCConfig) (*BtcClient, error) {
 }
 
 func (b *BtcClient) GetBlockCount() (int64, error) {
-	return metrics.RecordBtcClientMetrics[int64](b.client.GetBlockCount)
+	return clientCallWithRetry(b.client.GetBlockCount, b.cfg)
 }
 
 func (b *BtcClient) GetBlockTimestamp(height uint64) (int64, error) {
-	return metrics.RecordBtcClientMetrics[int64](func() (int64, error) {
+	return clientCallWithRetry(func() (int64, error) {
 		hash, err := b.client.GetBlockHash(int64(height))
 		if err != nil {
 			return 0, err
@@ -46,5 +51,56 @@ func (b *BtcClient) GetBlockTimestamp(height uint64) (int64, error) {
 		}
 
 		return header.Timestamp.Unix(), nil
+	}, b.cfg)
+}
+
+func (b *BtcClient) IsUTXOSpent(txHex string, vout uint32) (bool, error) {
+	return clientCallWithRetry(func() (bool, error) {
+		tx, err := utils.DeserializeBtcTransactionFromHex(txHex)
+		if err != nil {
+			return false, fmt.Errorf("failed to deserialize tx: %w", err)
+		}
+		hash := tx.TxHash()
+
+		txOut, err := b.client.GetTxOut(&hash, vout, false)
+		if err != nil {
+			return false, fmt.Errorf("failed to get txout: %w", err)
+		}
+
+		return txOut == nil, nil
+	}, b.cfg)
+}
+
+func clientCallWithRetry[T any](
+	call func() (T, error),
+	cfg *config.BTCConfig,
+) (T, error) {
+	return metrics.RecordBtcClientMetrics(func() (T, error) {
+		// Convert to pointer for retry.DoWithData
+		callWithPointer := func() (*T, error) {
+			result, err := call()
+			if err != nil {
+				return nil, err
+			}
+			return &result, nil
+		}
+
+		result, err := retry.DoWithData(callWithPointer,
+			retry.Attempts(cfg.MaxRetryTimes),
+			retry.Delay(cfg.RetryInterval),
+			retry.LastErrorOnly(true),
+			retry.OnRetry(func(n uint, err error) {
+				log.Debug().
+					Uint("attempt", n+1).
+					Uint("max_attempts", cfg.MaxRetryTimes).
+					Err(err).
+					Msg("failed to call the RPC client")
+			}))
+
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		return *result, nil
 	})
 }

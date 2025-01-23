@@ -71,6 +71,9 @@ func (s *Service) RunUntilShutdown(ctx context.Context) error {
 		}
 	}()
 
+	// Bootstrap
+	go s.checkUnbondingOutputsForSpends(ctx)
+
 	// Start pollers
 	go s.startExpiryPoller(ctx)
 	go s.startBTCSubscriberPoller(ctx)
