@@ -9,9 +9,8 @@ import (
 )
 
 func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
-	var (
-		pageToken = ""
-	)
+	log.Info().Msg("Starting check for spent unbonding outputs...")
+	var pageToken = ""
 
 	for {
 		result, err := s.db.GetBTCDelegationsByStates(
@@ -22,29 +21,36 @@ func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 			pageToken,
 		)
 		if err != nil {
-			log.Error().Err(err).Msg("error getting BTC delegations during initial UTXO check")
+			log.Error().
+				Err(err).
+				Msg("Failed to fetch unbonded delegations from database")
 			return
 		}
 
 		for _, delegation := range result.Data {
 			if delegation.UnbondingTx == nil {
-				// we are only interested in early unbonded delegations
-				// which have unbonding txs
 				log.Debug().
 					Str("staking_tx", delegation.StakingTxHashHex).
-					Msg("unbonded delegation has no unbonding tx")
+					Msg("Skipping delegation - no unbonding transaction found")
 				continue
 			}
 
 			isSpent, err := s.btc.IsUTXOSpent(delegation.UnbondingTx.TxHex, uint32(delegation.UnbondingTx.OutputIndex))
 			if err != nil {
-				log.Error().Err(err).Msg("failed to check if UTXO is spent")
+				log.Error().
+					Err(err).
+					Str("staking_tx", delegation.StakingTxHashHex).
+					Str("unbonding_tx", delegation.UnbondingTx.TxHex).
+					Uint32("output_index", uint32(delegation.UnbondingTx.OutputIndex)).
+					Msg("Failed to check unbonding output spent status")
 				continue
 			}
 			if isSpent {
 				log.Info().
 					Str("staking_tx", delegation.StakingTxHashHex).
-					Msg("unbonding output is spent")
+					Str("unbonding_tx", delegation.UnbondingTx.TxHex).
+					Uint32("output_index", uint32(delegation.UnbondingTx.OutputIndex)).
+					Msg("Found spent unbonding output - triggering withdrawn event")
 
 				withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
 				utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
@@ -57,5 +63,5 @@ func (s *Service) checkUnbondingOutputsForSpends(ctx context.Context) {
 		pageToken = result.PaginationToken
 	}
 
-	log.Info().Msg("Completed initial check for spent UTXOs")
+	log.Info().Msg("Completed check for spent unbonding outputs")
 }
