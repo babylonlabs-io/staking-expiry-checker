@@ -56,6 +56,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 					return fmt.Errorf("failed to check unbonding output spent status: %w", err)
 				}
 				if isSpent {
+					// Output is spent - trigger withdrawn event
 					log.Info().
 						Str("staking_tx", delegation.StakingTxHashHex).
 						Str("unbonding_tx", unbondingTxHashHex).
@@ -69,7 +70,7 @@ func (s *Service) processBTCSubscriber(ctx context.Context) error {
 					withdrawnEvent := types.NewWithdrawnDelegationEvent(delegation.StakingTxHashHex)
 					utils.PushOrQuit(s.withdrawnDelegationChan, withdrawnEvent, s.quit)
 				} else {
-					// If unbonding output is not spent, we need to register for spend notifications
+					// Output not spent - register for spend notifications
 					if err := s.registerUnbondingSpendNotification(
 						delegation.StakingTxHashHex,
 						delegation.UnbondingTx.TxHex,
