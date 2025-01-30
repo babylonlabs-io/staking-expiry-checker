@@ -32,7 +32,7 @@ The Staking Expiry Checker shares a database with other Phase 1 services and ope
 
 ### 2. Expiry Checker Poller
 - Polls timelock queue table
-- Identifies expired timelocks for staking/unbonding
+- Identifies delegations with expired staking/unbonding timelocks
 - Updates delegation status to "Unbonded" when timelock expires
 
 ## Installation & Setup
