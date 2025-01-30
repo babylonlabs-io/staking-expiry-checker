@@ -1,4 +1,4 @@
-# Babylon Staking Expiry Checker
+# Staking Expiry Checker
 
 ## Overview
 
