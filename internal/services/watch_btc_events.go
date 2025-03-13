@@ -292,7 +292,7 @@ func (s *Service) IsValidUnbondingTx(
 		btcParams,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to rebuid the staking info: %w", err)
+		return false, fmt.Errorf("failed to rebuild the staking info: %w", err)
 	}
 	unbondingPathInfo, err := stakingInfo.UnbondingPathSpendInfo()
 	if err != nil {
@@ -343,7 +343,7 @@ func (s *Service) IsValidUnbondingTx(
 		btcParams,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to rebuid the unbonding info: %w", err)
+		return false, fmt.Errorf("failed to rebuild the unbonding info: %w", err)
 	}
 	if !bytes.Equal(tx.TxOut[0].PkScript, unbondingInfo.UnbondingOutput.PkScript) {
 		return false, fmt.Errorf("%w: the unbonding output is not expected", types.ErrInvalidUnbondingTx)
@@ -397,7 +397,7 @@ func (s *Service) validateWithdrawalTxFromStaking(
 		btcParams,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to rebuid the staking info: %w", err)
+		return fmt.Errorf("failed to rebuild the staking info: %w", err)
 	}
 
 	timelockPathInfo, err := stakingInfo.TimeLockPathSpendInfo()
@@ -461,7 +461,7 @@ func (s *Service) validateWithdrawalTxFromUnbonding(
 		btcParams,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to rebuid the unbonding info: %w", err)
+		return fmt.Errorf("failed to rebuild the unbonding info: %w", err)
 	}
 	timelockPathInfo, err := unbondingInfo.TimeLockPathSpendInfo()
 	if err != nil {
