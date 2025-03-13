@@ -3,7 +3,9 @@ package btcclient
 import (
 	"fmt"
 	"net"
+	"os"
 
+	"github.com/btcsuite/btclog"
 	"github.com/btcsuite/btcwallet/chain"
 	"github.com/lightningnetwork/lnd/blockcache"
 	"github.com/lightningnetwork/lnd/chainntnfs"
@@ -25,7 +27,7 @@ func NewBTCNotifier(
 	if err != nil {
 		return nil, fmt.Errorf("invalid BTC network params: %w", err)
 	}
-	
+
 	bitcoindCfg := &chain.BitcoindConfig{
 		ChainParams:        params,
 		Host:               cfg.RPCHost,
@@ -39,6 +41,12 @@ func NewBTCNotifier(
 			TxPollingIntervalJitter: cfg.TxPollingIntervalJitter,
 		},
 	}
+
+	// Setup logging for chainntnfs
+	backend := btclog.NewBackend(os.Stdout)
+	logger := backend.Logger("NTFN")
+	logger.SetLevel(btclog.LevelDebug)
+	chainntnfs.UseLogger(logger)
 
 	bitcoindConn, err := chain.NewBitcoindConn(bitcoindCfg)
 	if err != nil {

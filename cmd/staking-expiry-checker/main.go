@@ -47,10 +47,12 @@ func main() {
 	defer cancel()
 
 	// Create DB client
-	dbClient, err := db.New(ctx, &cfg.Db)
+	var dbClient db.DbInterface
+	dbClient, err = db.New(ctx, &cfg.Db)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error while creating db client")
 	}
+	dbClient = db.NewDbWithMetrics(dbClient)
 
 	// Create BTC client
 	btcClient, err := btcclient.NewBtcClient(&cfg.Btc)

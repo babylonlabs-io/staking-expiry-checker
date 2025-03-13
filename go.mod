@@ -3,12 +3,14 @@ module github.com/babylonlabs-io/staking-expiry-checker
 go 1.23.1
 
 require (
+	github.com/avast/retry-go/v4 v4.5.1
 	github.com/babylonlabs-io/babylon v0.18.1
 	github.com/babylonlabs-io/networks/parameters v0.2.2
 	github.com/btcsuite/btcd v0.24.3-0.20241011125836-24eb815168f4
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/btcsuite/btcd/btcutil v1.1.6
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
+	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f
 	github.com/btcsuite/btcwallet v0.16.10-0.20240912233857-ffb143c77cc5
 	github.com/lightningnetwork/lnd v0.18.4-beta.rc1
 	github.com/spf13/viper v1.19.0
@@ -37,7 +39,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
 	github.com/btcsuite/btcd/btcutil/psbt v1.1.8 // indirect
-	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
 	github.com/btcsuite/btcwallet/wallet/txauthor v1.3.5 // indirect
 	github.com/btcsuite/btcwallet/wallet/txrules v1.2.2 // indirect
 	github.com/btcsuite/btcwallet/wallet/txsizes v1.2.5 // indirect

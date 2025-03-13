@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/http"
 
 	"github.com/babylonlabs-io/babylon/btcstaking"
 	bbn "github.com/babylonlabs-io/babylon/types"
@@ -27,7 +26,6 @@ func (s *Service) watchForSpendStakingTx(
 	spendEvent *notifier.SpendEvent,
 	stakingTxHashHex string,
 ) {
-	defer s.wg.Done()
 	quitCtx, cancel := s.quitContext()
 	defer cancel()
 
@@ -47,7 +45,7 @@ func (s *Service) watchForSpendStakingTx(
 		)
 		if err != nil {
 			log.Error().
-				Interface("error", err).
+				Err(err).
 				Stack().
 				Str("staking_tx", stakingTxHashHex).
 				Str("spending_tx", spendDetail.SpendingTx.TxHash().String()).
@@ -67,7 +65,6 @@ func (s *Service) watchForSpendUnbondingTx(
 	spendEvent *notifier.SpendEvent,
 	stakingTxHashHex string,
 ) {
-	defer s.wg.Done()
 	quitCtx, cancel := s.quitContext()
 	defer cancel()
 
@@ -85,7 +82,7 @@ func (s *Service) watchForSpendUnbondingTx(
 		)
 		if err != nil {
 			log.Error().
-				Interface("error", err).
+				Err(err).
 				Stack().
 				Str("staking_tx", stakingTxHashHex).
 				Str("spending_tx", spendDetail.SpendingTx.TxHash().String()).
@@ -168,7 +165,7 @@ func (s *Service) handleSpendingStakingTransaction(
 		utils.PushOrQuit(s.unbondingDelegationChan, unbondingEvent, s.quit)
 
 		// Register unbonding spend notification
-		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, unbondingStartHeight)
+		return s.registerUnbondingSpendNotification(stakingTxHashHex, unbondingTxHex, uint32(unbondingStartHeight))
 	}
 
 	// Try to validate as withdrawal transaction
@@ -522,17 +519,36 @@ func (s *Service) registerStakingSpendNotification(
 		Index: stakingOutputIdx,
 	}
 
-	spendEv, err := s.btcNotifier.RegisterSpendNtfn(
-		&stakingOutpoint,
-		stakingTx.TxOut[stakingOutputIdx].PkScript,
-		stakingStartHeight,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to register spend ntfn for staking tx %s: %w", stakingTxHashHex, err)
-	}
-
+	// Launch both registration and watching in a single goroutine
+	// to save time for caller
 	s.wg.Add(1)
-	go s.watchForSpendStakingTx(spendEv, stakingTxHashHex)
+	go func() {
+		defer s.wg.Done()
+
+		spendEv, err := s.btcNotifier.RegisterSpendNtfn(
+			&stakingOutpoint,
+			stakingTx.TxOut[stakingOutputIdx].PkScript,
+			stakingStartHeight,
+		)
+		if err != nil {
+			// TODO: Handle the error in a better way such as retrying immediately
+			// If continue to fail, we could retry by sending to queue and processing
+			// later again to make sure we don't miss any spend
+			// Will leave it as it is for now with alerts on log
+			log.Error().
+				Err(err).
+				Str("staking_tx", stakingTxHashHex).
+				Msg("failed to register spend notification")
+			return
+		}
+
+		log.Debug().
+			Str("staking_tx", stakingTxHashHex).
+			Msg("registered staking spend notification")
+
+		// Watch in the same goroutine
+		s.watchForSpendStakingTx(spendEv, stakingTxHashHex)
+	}()
 
 	return nil
 }
@@ -540,51 +556,54 @@ func (s *Service) registerStakingSpendNotification(
 func (s *Service) registerUnbondingSpendNotification(
 	stakingTxHashHex string,
 	unbondingTxHex string,
-	unbondingStartHeight uint64,
-) *types.Error {
+	spendHeightHint uint32,
+) error {
 	unbondingTxBytes, parseErr := hex.DecodeString(unbondingTxHex)
 	if parseErr != nil {
-		return types.NewError(
-			http.StatusInternalServerError,
-			types.InternalServiceError,
-			fmt.Errorf("failed to decode unbonding tx: %w", parseErr),
-		)
+		return fmt.Errorf("failed to decode unbonding tx: %w", parseErr)
 	}
 
 	unbondingTx, parseErr := bbn.NewBTCTxFromBytes(unbondingTxBytes)
 	if parseErr != nil {
-		return types.NewError(
-			http.StatusInternalServerError,
-			types.InternalServiceError,
-			fmt.Errorf("failed to parse unbonding tx: %w", parseErr),
-		)
+		return fmt.Errorf("failed to parse unbonding tx: %w", parseErr)
 	}
-
-	log.Debug().
-		Str("staking_tx", stakingTxHashHex).
-		Str("unbonding_tx", unbondingTx.TxHash().String()).
-		Msg("registering early unbonding spend notification")
 
 	unbondingOutpoint := wire.OutPoint{
 		Hash:  unbondingTx.TxHash(),
 		Index: 0, // unbonding tx has only 1 output
 	}
 
-	spendEv, btcErr := s.btcNotifier.RegisterSpendNtfn(
-		&unbondingOutpoint,
-		unbondingTx.TxOut[0].PkScript,
-		uint32(unbondingStartHeight),
-	)
-	if btcErr != nil {
-		return types.NewError(
-			http.StatusInternalServerError,
-			types.InternalServiceError,
-			fmt.Errorf("failed to register spend ntfn for unbonding tx %s: %w", stakingTxHashHex, btcErr),
-		)
-	}
-
+	// Launch both registration and watching in a single goroutine
+	// to save time for caller
 	s.wg.Add(1)
-	go s.watchForSpendUnbondingTx(spendEv, stakingTxHashHex)
+	go func() {
+		defer s.wg.Done()
+
+		spendEv, btcErr := s.btcNotifier.RegisterSpendNtfn(
+			&unbondingOutpoint,
+			unbondingTx.TxOut[0].PkScript,
+			spendHeightHint,
+		)
+		if btcErr != nil {
+			// TODO: Handle the error in a better way such as retrying immediately
+			// If continue to fail, we could retry by sending to queue and processing
+			// later again to make sure we don't miss any spend
+			// Will leave it as it is for now with alerts on log
+			log.Error().
+				Err(btcErr).
+				Str("staking_tx", stakingTxHashHex).
+				Msg("failed to register early unbonding spend notification")
+			return
+		}
+
+		log.Debug().
+			Str("staking_tx", stakingTxHashHex).
+			Str("unbonding_tx", unbondingTx.TxHash().String()).
+			Msg("registered early unbonding spend notification")
+
+		// Watch in the same goroutine
+		s.watchForSpendUnbondingTx(spendEv, stakingTxHashHex)
+	}()
 
 	return nil
 }

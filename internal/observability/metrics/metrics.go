@@ -33,6 +33,7 @@ var (
 	pollerDurationHistogram                      *prometheus.HistogramVec
 	btcClientDurationHistogram                   *prometheus.HistogramVec
 	invalidTransactionsCounter                   *prometheus.CounterVec
+	dbLatency                                    *prometheus.HistogramVec
 	failedVerifyingUnbondingTxsCounter           prometheus.Counter
 	failedVerifyingStakingWithdrawalTxsCounter   prometheus.Counter
 	failedVerifyingUnbondingWithdrawalTxsCounter prometheus.Counter
@@ -122,6 +123,14 @@ func registerMetrics() {
 		},
 	)
 
+	dbLatency = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "db_latency_seconds",
+			Help: "Latency of db method calls",
+		},
+		[]string{"method", "status"},
+	)
+
 	prometheus.MustRegister(
 		pollerDurationHistogram,
 		btcClientDurationHistogram,
@@ -129,12 +138,15 @@ func registerMetrics() {
 		failedVerifyingUnbondingTxsCounter,
 		failedVerifyingStakingWithdrawalTxsCounter,
 		failedVerifyingUnbondingWithdrawalTxsCounter,
+		dbLatency,
 	)
 }
 
 func RecordBtcClientMetrics[T any](clientRequest func() (T, error)) (T, error) {
 	var result T
-	functionName := utils.GetFunctionName(1)
+	// 1 for the caller, 2 for the caller of the caller
+	// We are using 2, b/c the clientCallWithRetry is used as a wrapper for the actual client request
+	functionName := utils.GetFunctionName(2)
 
 	start := time.Now()
 
@@ -177,6 +189,15 @@ func IncrementFailedVerifyingStakingWithdrawalTxCounter() {
 
 func IncrementFailedVerifyingUnbondingWithdrawalTxCounter() {
 	failedVerifyingUnbondingWithdrawalTxsCounter.Inc()
+}
+
+func ObserveDBLatency(method string, duration time.Duration, failure bool) {
+	status := Success
+	if failure {
+		status = Error
+	}
+
+	dbLatency.WithLabelValues(method, status.String()).Observe(duration.Seconds())
 }
 
 func ObservePollerDuration(pollerName string, duration time.Duration, err error) {

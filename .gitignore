@@ -21,3 +21,6 @@
 go.work
 
 rabbitmq_data
+
+.vscode
+.idea
