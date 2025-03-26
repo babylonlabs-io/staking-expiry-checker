@@ -51,3 +51,6 @@ generate-mock-interface:
 test:
 	./bin/local-startup.sh;
 	go test -v -cover ./...
+
+lint:
+	golangci-lint run
