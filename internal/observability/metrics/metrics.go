@@ -21,6 +21,9 @@ const (
 	Error                    Outcome       = "error"
 	MetricRequestTimeout     time.Duration = 5 * time.Second
 	MetricRequestIdleTimeout time.Duration = 10 * time.Second
+	// CallStackDepth represents the depth in the call stack to get the function name
+	// 0 is this function, 1 is the caller, 2 is the caller's caller
+	CallStackDepth = 2
 )
 
 func (O Outcome) String() string {
@@ -146,7 +149,7 @@ func RecordBtcClientMetrics[T any](clientRequest func() (T, error)) (T, error) {
 	var result T
 	// 1 for the caller, 2 for the caller of the caller
 	// We are using 2, b/c the clientCallWithRetry is used as a wrapper for the actual client request
-	functionName := utils.GetFunctionName(2)
+	functionName := utils.GetFunctionName(CallStackDepth)
 
 	start := time.Now()
 

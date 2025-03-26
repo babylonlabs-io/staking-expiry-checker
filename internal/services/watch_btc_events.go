@@ -58,7 +58,6 @@ func (s *Service) watchForSpendStakingTx(
 	case <-quitCtx.Done():
 		return
 	}
-
 }
 
 func (s *Service) watchForSpendUnbondingTx(
@@ -327,7 +326,7 @@ func (s *Service) IsValidUnbondingTx(
 
 	// 5. check whether the script of an unbonding tx output is expected
 	// by re-building unbonding output from params
-	unbondingFee := btcutil.Amount(params.UnbondingFee)
+	unbondingFee := params.UnbondingFee
 	expectedUnbondingOutputValue := stakingValue - unbondingFee
 	if expectedUnbondingOutputValue <= 0 {
 		return false, fmt.Errorf("%w: staking output value is too low, got %v, unbonding fee: %v",
@@ -449,7 +448,7 @@ func (s *Service) validateWithdrawalTxFromUnbonding(
 	// re-build the time-lock path script and check whether the script from
 	// the witness matches
 	stakingValue := btcutil.Amount(stakingTx.TxOut[delegation.StakingTx.OutputIndex].Value)
-	unbondingFee := btcutil.Amount(params.UnbondingFee)
+	unbondingFee := params.UnbondingFee
 	expectedUnbondingOutputValue := stakingValue - unbondingFee
 	unbondingInfo, err := btcstaking.BuildUnbondingInfo(
 		stakerPk.MustToBTCPK(),

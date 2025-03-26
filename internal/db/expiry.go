@@ -10,11 +10,17 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const (
+	// MaxFindLimit is the maximum number of records to return in a find operation
+	// to prevent large result sets
+	MaxFindLimit = 200
+)
+
 func (db *Database) FindExpiredDelegations(ctx context.Context, btcTipHeight uint64) ([]model.TimeLockDocument, error) {
 	client := db.client.Database(db.dbName).Collection(model.TimeLockCollection)
 	filter := bson.M{"expire_height": bson.M{"$lte": btcTipHeight}}
 
-	opts := options.Find().SetLimit(200) // to prevent large result sets
+	opts := options.Find().SetLimit(MaxFindLimit) // to prevent large result sets
 	cursor, err := client.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
