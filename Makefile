@@ -27,7 +27,7 @@ $(BUILD_TARGETS): go.sum $(BUILDDIR)/
 $(BUILDDIR)/:
 	mkdir -p $(BUILDDIR)/
 
-.PHONY: build install tests
+.PHONY: build install tests test test-integration test-coverage
 
 build-docker:
 	$(MAKE) BBN_PRIV_DEPLOY_KEY=${BBN_PRIV_DEPLOY_KEY} -C contrib/images staking-expiry-checker
@@ -54,3 +54,14 @@ test:
 
 lint:
 	golangci-lint run
+# Run integration tests
+test-integration:
+	go test -v -tags=integration ./...
+
+test-integration-coverage:
+	# Run integration tests with coverage
+	go test -v -tags=integration -coverprofile=integration.out ./...
+	# Show coverage report
+	go tool cover -html=integration.out -o coverage.html
+	# Display coverage statistics in terminal
+	go tool cover -func=integration.out

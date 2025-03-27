@@ -21,7 +21,7 @@ type DbResultMap[T any] struct {
 	PaginationToken string `json:"paginationToken"`
 }
 
-func New(ctx context.Context, cfg *config.DbConfig) (*Database, error) {
+func New(ctx context.Context, cfg config.DbConfig) (*Database, error) {
 	credential := options.Credential{
 		Username: cfg.Username,
 		Password: cfg.Password,
@@ -35,7 +35,7 @@ func New(ctx context.Context, cfg *config.DbConfig) (*Database, error) {
 	return &Database{
 		dbName: cfg.DbName,
 		client: client,
-		cfg:    cfg,
+		cfg:    &cfg,
 	}, nil
 }
 

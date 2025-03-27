@@ -135,12 +135,18 @@ func (db *Database) GetBTCDelegationsByStates(
 		filter["_id"] = bson.M{"$gt": decodedToken.StakingTxHashHex}
 	}
 
+	// Use a sensible default limit if not specified in config
+	limit := db.cfg.MaxPaginationLimit
+	if limit <= 0 {
+		limit = 10 // Default to 10 if not specified
+	}
+
 	return findWithPagination(
 		ctx,
 		db.client.Database(db.dbName).Collection(model.DelegationsCollection),
 		filter,
 		options,
-		db.cfg.MaxPaginationLimit,
+		limit,
 		model.BuildDelegationScanPaginationToken,
 	)
 }
