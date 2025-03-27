@@ -17,6 +17,10 @@ const (
 	mongoUsername     = "user"
 	mongoPassword     = "password"
 	mongoDatabaseName = "test-database"
+
+	// Constants for various configurations
+	randomContainerNameLength = 6
+	mongoConnectTimeout       = 5 * time.Second
 )
 
 // MongoDBContainer represents a MongoDB container for testing
@@ -34,7 +38,7 @@ func SetupMongoContainer() (*MongoDBContainer, error) {
 	}
 
 	// Generate random string for container name
-	randomString, err := RandomAlphaNum(6)
+	randomString, err := RandomAlphaNum(randomContainerNameLength)
 	if err != nil {
 		return nil, fmt.Errorf("could not generate random string: %w", err)
 	}
@@ -73,7 +77,7 @@ func SetupMongoContainer() (*MongoDBContainer, error) {
 	// Wait for MongoDB to be ready
 	if err = pool.Retry(func() error {
 		var err error
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), mongoConnectTimeout)
 		defer cancel()
 
 		// Try to connect to MongoDB
@@ -87,7 +91,11 @@ func SetupMongoContainer() (*MongoDBContainer, error) {
 		if err != nil {
 			return err
 		}
-		defer client.Disconnect(ctx)
+		defer func() {
+			if err := client.Disconnect(ctx); err != nil {
+				log.Printf("Failed to disconnect client: %v", err)
+			}
+		}()
 
 		// Ping to verify connection
 		return client.Ping(ctx, nil)
@@ -128,7 +136,11 @@ func (m *MongoDBContainer) ResetDatabase(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer client.Disconnect(ctx)
+	defer func() {
+		if err := client.Disconnect(ctx); err != nil {
+			log.Printf("Failed to disconnect client: %v", err)
+		}
+	}()
 
 	database := client.Database(m.config.DbName)
 	collections, err := database.ListCollectionNames(ctx, struct{}{})

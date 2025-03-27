@@ -12,6 +12,22 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+const (
+	// Hex string lengths for various data
+	btcAddressHexLength = 40 // Length for random BTC address hex
+	txHashHexLength     = 64 // Length for transaction hash hex
+	stakingTxHashLength = 32 // Length for staking transaction hash
+	pkHexLength         = 33 // Length for public key hex
+
+	// Time constants
+	unbondingMonthsOffset = 6 // Number of months to add for unbonding
+
+	// Random number ranges
+	maxOutputIndexRange = 10  // Maximum value for random output index
+	txHexMinLength      = 200 // Minimum length for transaction hex
+	txHexLengthRange    = 800 // Range for transaction hex length
+)
+
 // RandomAlphaNum generates random alphanumeric string
 // in case length <= 0 it returns empty string
 func RandomAlphaNum(length int) (string, error) {
@@ -48,13 +64,13 @@ func RandomHex(length int) (string, error) {
 func RandomBTCAddress() (string, error) {
 	// Generate a random hex string to simulate a Bitcoin address
 	// Real BTC addresses have specific formats, but for testing this is sufficient
-	return RandomHex(40)
+	return RandomHex(btcAddressHexLength)
 }
 
 // RandomTxHash generates a random Bitcoin transaction hash
 // Bitcoin transaction hashes are 32 bytes, displayed as 64 hex characters
 func RandomTxHash() (string, error) {
-	return RandomHex(64)
+	return RandomHex(txHashHexLength)
 }
 
 // RandomBlockHeight generates a random block height within a realistic range
@@ -97,7 +113,7 @@ func RandomTimestamp(minDate, maxDate time.Time) (int64, error) {
 
 	// Ensure valid range
 	if maxDate.Before(minDate) {
-		maxDate = minDate.AddDate(0, 6, 0) // Add 6 months
+		maxDate = minDate.AddDate(0, unbondingMonthsOffset, 0) // Add months
 	}
 
 	minUnix := minDate.Unix()
@@ -141,7 +157,7 @@ func RandomAmount(minAmount, maxAmount int64) (int64, error) {
 // RandomOutputIndex generates a random output index for a transaction
 // Bitcoin transactions typically have a small number of outputs
 func RandomOutputIndex() (uint64, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(10))
+	n, err := rand.Int(rand.Reader, big.NewInt(maxOutputIndexRange))
 	if err != nil {
 		return 0, err
 	}
@@ -163,12 +179,12 @@ func RandomTimelock() (uint64, error) {
 // RandomTxHex generates a random transaction hex
 // Transaction hex strings can be very long, but we'll create a reasonable length for testing
 func RandomTxHex() (string, error) {
-	// Generate a random length between 200-1000 hex chars
-	length, err := rand.Int(rand.Reader, big.NewInt(800))
+	// Generate a random length between min-max hex chars
+	length, err := rand.Int(rand.Reader, big.NewInt(txHexLengthRange))
 	if err != nil {
 		return "", err
 	}
-	length = length.Add(length, big.NewInt(200)) // Add 200 to get 200-1000 range
+	length = length.Add(length, big.NewInt(txHexMinLength)) // Add min to get min-max range
 
 	// Generate random bytes
 	bytes := make([]byte, length.Int64()/2)
@@ -183,17 +199,17 @@ func RandomTxHex() (string, error) {
 
 // GenerateRandomDelegation creates a mock delegation for testing
 func GenerateRandomDelegation(state types.DelegationState) (*model.DelegationDocument, error) {
-	stakingTxHash, err := RandomHex(32)
+	stakingTxHash, err := RandomHex(stakingTxHashLength)
 	if err != nil {
 		return nil, err
 	}
 
-	stakerPk, err := RandomHex(33)
+	stakerPk, err := RandomHex(pkHexLength)
 	if err != nil {
 		return nil, err
 	}
 
-	fpPk, err := RandomHex(33)
+	fpPk, err := RandomHex(pkHexLength)
 	if err != nil {
 		return nil, err
 	}
