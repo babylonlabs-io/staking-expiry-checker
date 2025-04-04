@@ -1,12 +1,13 @@
 package db
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/db/model"
-	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	"context"
 	"time"
+
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/db/model"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
+	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type dbWithMetrics struct {

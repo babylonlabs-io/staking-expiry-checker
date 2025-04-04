@@ -68,7 +68,7 @@ func (s *Service) handleUnbondingDelegation(ctx context.Context) {
 			}
 
 		case <-ctx.Done():
-			log.Info().Msg("stopping unbonding channel listener: context cancelled")
+			log.Info().Msg("stopping unbonding channel listener: context canceled")
 			return
 
 		case <-s.quit:
@@ -124,7 +124,7 @@ func (s *Service) handleWithdrawnDelegation(ctx context.Context) {
 			}
 
 		case <-ctx.Done():
-			log.Info().Msg("stopping withdrawn channel listener: context cancelled")
+			log.Info().Msg("stopping withdrawn channel listener: context canceled")
 			return
 
 		case <-s.quit:
