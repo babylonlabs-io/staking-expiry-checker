@@ -9,8 +9,10 @@ import (
 
 type TracingContextKey string
 
-const TracingInfoKey = TracingContextKey("requestTracingInfo")
-const TraceIdKey = TracingContextKey("requestTraceId")
+const (
+	TracingInfoKey = TracingContextKey("requestTracingInfo")
+	TraceIdKey     = TracingContextKey("requestTraceId")
+)
 
 type SpanDetail struct {
 	Name     string

@@ -250,7 +250,8 @@ func (s *Service) IsValidUnbondingTx(
 
 	// 1. an unbonding tx must be a transfer tx
 	if err := btcstaking.IsTransferTx(tx); err != nil {
-		return false, nil
+		// nil as error is intentional
+		return false, nil //nolint:nilerr
 	}
 
 	// 2. an unbonding tx must spend the staking output

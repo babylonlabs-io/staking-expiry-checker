@@ -54,3 +54,6 @@ test:
 
 lint:
 	golangci-lint run
+
+format:
+	gofumpt -l -w .

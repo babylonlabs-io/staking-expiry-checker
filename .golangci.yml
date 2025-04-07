@@ -22,7 +22,7 @@ linters-settings:
       - whyNoLint
       - unnamedResult
   gocyclo:
-    min-complexity: 15
+    min-complexity: 18 # todo decrease to 15
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
   mnd:
@@ -50,7 +50,7 @@ linters-settings:
   lll:
     line-length: 140
   misspell:
-    locale: UK
+    locale: US
   nolintlint:
     allow-unused: false # report any unused nolint directives
     require-explanation: false # don't require an explanation for nolint directives
@@ -90,18 +90,18 @@ linters:
     - noctx
     - typecheck
     - tparallel
+    - gofumpt
+    - nilerr
+    - misspell
+    - funlen
+    - gocyclo
   # todo enable after golangci-lint update to 1.63
   # - nilnesserr
   # - usetesting
   # - exhaustruct
-  # - nilerr
   # - lll
   # - stylecheck
-  # - gofumpt
-  # - misspell
   # - dupl
-  # - funlen
-  # - gocyclo
   # - gocritic
 
   # don't enable:

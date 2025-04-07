@@ -95,7 +95,6 @@ func clientCallWithRetry[T any](
 					Err(err).
 					Msg("failed to call the RPC client")
 			}))
-
 		if err != nil {
 			var zero T
 			return zero, err
