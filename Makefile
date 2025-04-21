@@ -49,7 +49,6 @@ generate-mock-interface:
 	cd internal/btcclient && mockery --name=BtcInterface --output=../../tests/mocks --outpkg=mocks --filename=mock_btc_client.go
 
 test:
-	./bin/local-startup.sh;
 	go test -v -cover ./...
 
 lint:
