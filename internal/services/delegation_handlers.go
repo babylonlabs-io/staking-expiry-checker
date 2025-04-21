@@ -6,6 +6,7 @@ import (
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 	"github.com/rs/zerolog/log"
+	"slices"
 )
 
 // handleUnbondingDelegation processes unbonding delegations
@@ -28,14 +29,14 @@ func (s *Service) handleUnbondingDelegation(ctx context.Context) {
 				continue
 			}
 
-			if utils.Contains(utils.OutdatedStatesForUnbonding(), delegation.State) {
+			if slices.Contains(utils.OutdatedStatesForUnbonding(), delegation.State) {
 				debugMsg := "delegation state is outdated for unbonding event"
 				log.Ctx(ctx).Debug().Str("stakingTxHashHex", delegation.StakingTxHashHex).
 					Msg(debugMsg)
 				continue
 			}
 
-			if !utils.Contains(utils.QualifiedStatesToUnbonding(), delegation.State) {
+			if !slices.Contains(utils.QualifiedStatesToUnbonding(), delegation.State) {
 				debugMsg := "delegation is not in the qualified state to transition to unbonding"
 				log.Ctx(ctx).Debug().Str("stakingTxHashHex", delegation.StakingTxHashHex).
 					Str("state", delegation.State.ToString()).Msg(debugMsg)
@@ -98,14 +99,14 @@ func (s *Service) handleWithdrawnDelegation(ctx context.Context) {
 				continue
 			}
 
-			if utils.Contains(utils.OutdatedStatesForWithdraw(), delegation.State) {
+			if slices.Contains(utils.OutdatedStatesForWithdraw(), delegation.State) {
 				debugMsg := "delegation state is outdated for withdrawn event"
 				log.Ctx(ctx).Debug().Str("stakingTxHashHex", delegation.StakingTxHashHex).
 					Msg(debugMsg)
 				continue
 			}
 
-			if !utils.Contains(utils.QualifiedStatesToWithdraw(), delegation.State) {
+			if !slices.Contains(utils.QualifiedStatesToWithdraw(), delegation.State) {
 				debugMsg := "delegation is not in the qualified state to transition to withdrawn"
 				log.Ctx(ctx).Debug().Str("stakingTxHashHex", delegation.StakingTxHashHex).
 					Str("state", delegation.State.ToString()).Msg(debugMsg)
