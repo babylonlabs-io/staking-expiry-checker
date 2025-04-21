@@ -2,11 +2,11 @@ package services
 
 import (
 	"context"
+	"slices"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/types"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/utils"
 	"github.com/rs/zerolog/log"
-	"slices"
 )
 
 // handleUnbondingDelegation processes unbonding delegations
