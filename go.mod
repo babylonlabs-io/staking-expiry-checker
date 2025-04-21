@@ -15,6 +15,7 @@ require (
 	github.com/go-chi/chi v1.5.5
 	github.com/joho/godotenv v1.5.1
 	github.com/lightningnetwork/lnd v0.18.4-beta.rc1
+	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/prometheus/client_golang v1.20.5
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/cobra v1.8.1
@@ -64,6 +65,7 @@ require (
 	github.com/btcsuite/winsvc v1.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
