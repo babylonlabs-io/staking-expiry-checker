@@ -124,7 +124,7 @@ Reference: [Grafana Dashboard](https://grafana.tooling.babylonlabs.io/goto/JXd8H
 
 ### Requirements
 
-- **Go**: Version `1.23.1` or higher is required.
+- **Go**: Version `1.24.3` or higher is required.
 - **MongoDB**: A MongoDB instance with replica sets enabled is required
 
 1. Clone the repository
