@@ -1,6 +1,6 @@
 module github.com/babylonlabs-io/staking-expiry-checker
 
-go 1.23.1
+go 1.24.3
 
 require (
 	github.com/avast/retry-go/v4 v4.5.1
