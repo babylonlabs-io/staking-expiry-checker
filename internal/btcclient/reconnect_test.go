@@ -11,7 +11,7 @@ import (
 )
 
 func TestReconnect(t *testing.T) {
-	// t.Skip("Manual")
+	t.Skip("Manual")
 
 	cfg := &config.BTCConfig{
 		RPCHost:              "127.0.0.30:18443",
