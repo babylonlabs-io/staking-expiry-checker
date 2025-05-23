@@ -5,15 +5,23 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/rs/zerolog/log"
 
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/observability/metrics"
+	"github.com/btcsuite/btcd/btcjson"
+	"github.com/btcsuite/btcd/wire"
 )
 
+type client interface {
+	GetBlockCount() (int64, error)
+	GetBlockHash(int64) (*chainhash.Hash, error)
+	GetBlockHeader(*chainhash.Hash) (*wire.BlockHeader, error)
+	GetTxOut(*chainhash.Hash, uint32, bool) (*btcjson.GetTxOutResult, error)
+}
+
 type BtcClient struct {
-	client *rpcclient.Client
+	client client
 	cfg    *config.BTCConfig
 }
 
@@ -23,7 +31,7 @@ func NewBtcClient(cfg *config.BTCConfig) (*BtcClient, error) {
 		return nil, err
 	}
 
-	rpcClient, err := rpcclient.New(connCfg, nil)
+	rpcClient, err := newRPCClientWithReconect(connCfg)
 	if err != nil {
 		return nil, err
 	}
