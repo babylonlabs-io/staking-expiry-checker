@@ -2,11 +2,12 @@ package btcclient
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/config"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestReconnect(t *testing.T) {
@@ -35,5 +36,4 @@ func TestReconnect(t *testing.T) {
 		require.NoError(t, err)
 		spew.Dump(count)
 	}
-
 }
