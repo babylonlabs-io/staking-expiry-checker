@@ -14,9 +14,10 @@ type PollerConfig struct {
 }
 
 type PollersConfig struct {
-	LogLevel      string       `mapstructure:"log-level"`
-	ExpiryChecker PollerConfig `mapstructure:"expiry-checker"`
-	BtcSubscriber PollerConfig `mapstructure:"btc-subscriber"`
+	LogLevel         string       `mapstructure:"log-level"`
+	ExpiryChecker    PollerConfig `mapstructure:"expiry-checker"`
+	BtcSubscriber    PollerConfig `mapstructure:"btc-subscriber"`
+	StatsCalculation PollerConfig `mapstructure:"stats-calculation"`
 }
 
 func (cfg *PollersConfig) Validate() error {
@@ -29,6 +30,10 @@ func (cfg *PollersConfig) Validate() error {
 	}
 
 	if err := cfg.BtcSubscriber.Validate(); err != nil {
+		return err
+	}
+
+	if err := cfg.StatsCalculation.Validate(); err != nil {
 		return err
 	}
 

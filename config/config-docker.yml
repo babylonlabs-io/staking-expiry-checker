@@ -6,6 +6,9 @@ pollers:
   btc-subscriber:
     interval: 10s
     timeout: 100s
+  stats-calculation:
+    interval: 10m  # Every 10 minutes
+    timeout: 120s
 db:
   username: root
   password: example

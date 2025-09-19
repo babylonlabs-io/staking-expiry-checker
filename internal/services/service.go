@@ -74,6 +74,7 @@ func (s *Service) RunUntilShutdown(ctx context.Context) error {
 	// Start pollers
 	go s.startExpiryPoller(ctx)
 	go s.startBTCSubscriberPoller(ctx)
+	go s.startStatsCalculationPoller(ctx)
 
 	// Start service handlers
 	go s.handleUnbondingDelegation(ctx)
@@ -148,6 +149,51 @@ func (s *Service) startBTCSubscriberPoller(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (s *Service) startStatsCalculationPoller(ctx context.Context) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(s.cfg.Pollers.StatsCalculation.Interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			pollingCtx, cancel := context.WithTimeout(ctx, s.cfg.Pollers.StatsCalculation.Timeout)
+			start := time.Now()
+			log.Debug().Msg("starting Phase-1 stats calculation poller")
+			err := s.processStatsCalculation(pollingCtx)
+			if err != nil {
+				log.Error().Err(err).Msg("Error processing Phase-1 stats calculation")
+			}
+			duration := time.Since(start)
+			metrics.ObservePollerDuration("stats_calculation_poller", duration, err)
+			cancel()
+		case <-ctx.Done():
+			log.Info().Msg("Stats calculation poller stopped due to context cancellation")
+			return
+		case <-s.quit:
+			return
+		}
+	}
+}
+
+func (s *Service) processStatsCalculation(ctx context.Context) error {
+	log.Debug().Msg("Processing Phase-1 stats calculation")
+
+	stats, err := s.db.CalculateAndUpsertV1OverallStats(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to calculate and upsert V1 overall stats: %w", err)
+	}
+
+	log.Info().
+		Int64("active_tvl", stats.ActiveTvl).
+		Int64("active_delegations", stats.ActiveDelegations).
+		Msg("Successfully recalculated Phase-1 overall stats")
+
+	return nil
 }
 
 func (s *Service) getVersionedParams(height uint64) (*parser.ParsedVersionedGlobalParams, error) {

@@ -95,3 +95,10 @@ func runAndMeasureLatency[T any](method string, f func() (T, error)) (T, error) 
 	metrics.ObserveDBLatency(method, duration, err != nil)
 	return v, err
 }
+
+// V1 Overall Stats methods for cron job calculation
+func (d *dbWithMetrics) CalculateAndUpsertV1OverallStats(ctx context.Context) (*model.V1OverallStatsDocument, error) {
+	return runAndMeasureLatency("CalculateAndUpsertV1OverallStats", func() (*model.V1OverallStatsDocument, error) {
+		return d.db.CalculateAndUpsertV1OverallStats(ctx)
+	})
+}

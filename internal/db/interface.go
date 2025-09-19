@@ -45,4 +45,5 @@ type DbInterface interface {
 		paginationToken string,
 	) (*DbResultMap[model.DelegationDocument], error)
 	GetBTCDelegationState(ctx context.Context, stakingTxHash string) (*types.DelegationState, error)
+	CalculateAndUpsertV1OverallStats(ctx context.Context) (*model.V1OverallStatsDocument, error)
 }
