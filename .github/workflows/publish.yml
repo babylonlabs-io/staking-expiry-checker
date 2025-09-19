@@ -24,3 +24,4 @@ jobs:
     with:
      publish: true
      dockerfile: ./contrib/images/staking-expiry-checker/Dockerfile
+     docker_scan: true
