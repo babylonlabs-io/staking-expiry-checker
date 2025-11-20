@@ -26,9 +26,6 @@ func (s *Service) watchForSpendStakingTx(
 	spendEvent *notifier.SpendEvent,
 	stakingTxHashHex string,
 ) {
-	quitCtx, cancel := s.quitContext()
-	defer cancel()
-
 	// Get spending details
 	select {
 	case spendDetail := <-spendEvent.Spend:
@@ -55,8 +52,6 @@ func (s *Service) watchForSpendStakingTx(
 
 	case <-s.quit:
 		return
-	case <-quitCtx.Done():
-		return
 	}
 }
 
@@ -64,9 +59,6 @@ func (s *Service) watchForSpendUnbondingTx(
 	spendEvent *notifier.SpendEvent,
 	stakingTxHashHex string,
 ) {
-	quitCtx, cancel := s.quitContext()
-	defer cancel()
-
 	// Get spending details
 	select {
 	case spendDetail := <-spendEvent.Spend:
@@ -91,8 +83,6 @@ func (s *Service) watchForSpendUnbondingTx(
 		}
 
 	case <-s.quit:
-		return
-	case <-quitCtx.Done():
 		return
 	}
 }
@@ -481,22 +471,6 @@ func (s *Service) validateWithdrawalTxFromUnbonding(
 	}
 
 	return nil
-}
-
-func (s *Service) quitContext() (context.Context, func()) {
-	ctx, cancel := context.WithCancel(context.Background())
-	s.wg.Add(1)
-	go func() {
-		defer cancel()
-		defer s.wg.Done()
-
-		select {
-		case <-s.quit:
-		case <-ctx.Done():
-		}
-	}()
-
-	return ctx, cancel
 }
 
 func (s *Service) registerStakingSpendNotification(
