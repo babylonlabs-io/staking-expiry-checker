@@ -37,7 +37,7 @@ func (s *Service) watchForSpendStakingTx(
 			Str("spending_tx", spendDetail.SpendingTx.TxHash().String()).
 			Msg("staking tx has been spent")
 		err := s.handleSpendingStakingTransaction(
-			quitCtx,
+			context.Background(),
 			spendDetail.SpendingTx,
 			uint32(spendDetail.SpendingHeight),
 			spendDetail.SpenderInputIndex,
@@ -73,8 +73,9 @@ func (s *Service) watchForSpendUnbondingTx(
 		log.Debug().
 			Str("staking_tx", stakingTxHashHex).
 			Msg("unbonding tx has been spent")
+		// Use context.Background() to ensure DB operations complete even during shutdown
 		err := s.handleSpendingUnbondingTransaction(
-			quitCtx,
+			context.Background(),
 			spendDetail.SpendingTx,
 			spendDetail.SpenderInputIndex,
 			stakingTxHashHex,
