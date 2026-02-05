@@ -2,6 +2,7 @@ FROM golang:1.24.3-alpine AS builder
 
 ARG VERSION="HEAD"
 
+# hadolint ignore=DL3018
 RUN apk add --no-cache  \
     make \
     git \
@@ -31,10 +32,10 @@ RUN LDFLAGS='-extldflags "-static" -v' \
     make build
 
 # Final minimal image with binary only
-FROM alpine:3.16 as run
+FROM alpine:3.21 AS run
 
 RUN addgroup --gid 1138 -S staking-expiry-checker && adduser --uid 1138 -S staking-expiry-checker -G staking-expiry-checker
-RUN apk add bash curl jq
+RUN apk add --no-cache bash=5.2.37-r0 curl=8.14.1-r2 jq=1.7.1-r0
 
 # Label should match your github repo
 LABEL org.opencontainers.image.source="https://github.com/babylonlabs-io/staking-expiry-checker:${VERSION}"
