@@ -1,6 +1,7 @@
 package btcclient
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -68,7 +69,8 @@ func NewBTCNotifier(
 
 func BuildDialer(rpcHost string) func(string) (net.Conn, error) {
 	return func(addr string) (net.Conn, error) {
-		return net.Dial("tcp", rpcHost)
+		dialer := &net.Dialer{}
+		return dialer.DialContext(context.Background(), "tcp", rpcHost)
 	}
 }
 

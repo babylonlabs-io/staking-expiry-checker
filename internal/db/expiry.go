@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/babylonlabs-io/staking-expiry-checker/internal/db/model"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -25,7 +27,11 @@ func (db *Database) FindExpiredDelegations(ctx context.Context, btcTipHeight uin
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() {
+		if err := cursor.Close(ctx); err != nil {
+			log.Error().Err(err).Msg("failed to close cursor")
+		}
+	}()
 
 	var delegations []model.TimeLockDocument
 	if err = cursor.All(ctx, &delegations); err != nil {
