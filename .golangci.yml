@@ -27,7 +27,7 @@ linters:
     gocyclo:
       min-complexity: 18 # todo decrease to 15
     goimports:
-      local-prefixes: github.com/golangci/golangci-lint
+      local-prefixes: github.com/babylonlabs-io/staking-expiry-checker
     mnd:
       # don't include the "operation", "assign", "condition"
       checks:
