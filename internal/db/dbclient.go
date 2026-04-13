@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 
+	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -92,7 +93,11 @@ func findWithPagination[T any](
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() {
+		if err := cursor.Close(ctx); err != nil {
+			log.Error().Err(err).Msg("failed to close cursor")
+		}
+	}()
 
 	var result []T
 	if err = cursor.All(ctx, &result); err != nil {
